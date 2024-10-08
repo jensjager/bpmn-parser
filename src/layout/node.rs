@@ -1,4 +1,4 @@
-pub struct node {
+pub struct Node {
     pub id: usize,
     pub layer: Option<i32>
 }
