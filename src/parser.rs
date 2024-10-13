@@ -1,104 +1,81 @@
 // src/parser.rs
 
 use crate::lexer::{Token, Lexer};
-use crate::ast::{BpmnNode, BpmnEvent, BpmnFlow};
+use crate::ast::{BpmnEvent, BpmnGraph};
 
 // Struct for the Parser
 pub struct Parser<'a> {
     lexer: Lexer<'a>,            // The lexer that provides tokens
-    current_token: Option<Token>,// Holds the current token
-    has_seen_start_event: bool,  // Flag to track if start event has been processed
+    current_token: Token,         // Current token being processed
 }
 
 impl<'a> Parser<'a> {
-    // Create a new parser instance
+    // Create a new parser from the lexer
     pub fn new(mut lexer: Lexer<'a>) -> Self {
-        let current_token = lexer.next_token();
-        Parser {
-            lexer,
-            current_token,
-            has_seen_start_event: false, // Start with no events seen
-        }
+        let current_token = lexer.next_token().unwrap_or(Token::Eof);
+        Parser { lexer, current_token }
     }
 
-    // Advance to the next token
+    // Function to advance the current token
     fn advance(&mut self) {
-        self.current_token = self.lexer.next_token();
+        self.current_token = self.lexer.next_token().unwrap_or(Token::Eof);
     }
 
-    // Parse the entire BPMD file into an AST
-    pub fn parse(&mut self) -> Result<BpmnNode, String> {
-        let mut nodes = Vec::new();
+    // Main parsing function
+    pub fn parse(&mut self) -> Result<BpmnGraph, String> {
+        let mut graph = BpmnGraph::new();
+        let mut last_node_id = None;
 
-        while let Some(token) = self.current_token.clone() { // Clone to avoid borrowing
-            match token {
+        while self.current_token != Token::Eof {
+            match &self.current_token {
                 Token::EventStart => {
-                    if self.has_seen_start_event {
-                        // If we've seen the start event, treat this as a middle event
-                        let event = self.parse_middle_event()?;
-                        nodes.push(event);
-                    } else {
-                        // This is the first event, so treat it as the start event
-                        let event = self.parse_start_event()?;
-                        nodes.push(event);
-                        self.has_seen_start_event = true; // Mark that start event has been processed
+                    self.advance();
+                    let label = self.parse_text()?;  // Get the label after the event
+                    let node_id = graph.add_node(BpmnEvent::Start(label));
+
+                    if let Some(prev_id) = last_node_id {
+                        graph.add_edge(prev_id, node_id); // Connect previous node
                     }
-                },
+                    last_node_id = Some(node_id);
+                }
+                Token::EventMiddle => {
+                    self.advance();
+                    let label = self.parse_text()?;  // Get the label after the event
+                    let node_id = graph.add_node(BpmnEvent::Middle(label));
+
+                    if let Some(prev_id) = last_node_id {
+                        graph.add_edge(prev_id, node_id); // Connect previous node
+                    }
+                    last_node_id = Some(node_id);
+                }
                 Token::EventEnd => {
-                    let event = self.parse_end_event()?;
-                    nodes.push(event);
-                },
-                Token::Eof => break,
-                _ => return Err(format!("Unexpected token: {:?}", token)),
+                    self.advance();
+                    let label = self.parse_text()?;  // Get the label after the event
+                    let node_id = graph.add_node(BpmnEvent::End(label));
+
+                    if let Some(prev_id) = last_node_id {
+                        graph.add_edge(prev_id, node_id); // Connect previous node
+                    }
+                    last_node_id = Some(node_id);
+                }
+                _ => {
+                    return Err(format!("Unexpected token: {:?}", self.current_token));
+                }
             }
+
             self.advance();
         }
 
-        Ok(BpmnNode::Flow(BpmnFlow::Nodes(nodes))) // Return a Flow node containing all parsed nodes
+        Ok(graph)
     }
 
-    // Parse a start event (e.g. `- Start Event`)
-    fn parse_start_event(&mut self) -> Result<BpmnNode, String> {
-        // Ensure the current token is a start event
-        if let Some(Token::EventStart) = self.current_token {
-            // Advance to the next token
-            self.advance();
-            if let Some(Token::Text(text)) = self.current_token.clone() {
-                Ok(BpmnNode::Event(BpmnEvent::Start(text)))
-            } else {
-                Err("Expected text after start event".to_string())
-            }
+    // Helper to parse the text following an event symbol
+    fn parse_text(&mut self) -> Result<String, String> {
+        if let Token::Text(label) = &self.current_token {
+            let result = label.clone();
+            Ok(result)
         } else {
-            Err("Expected a start event".to_string())
-        }
-    }
-
-    // Parse a middle event (e.g. `- Middle Event`)
-    fn parse_middle_event(&mut self) -> Result<BpmnNode, String> {
-        if let Some(Token::EventStart) = self.current_token {
-            self.advance();
-            if let Some(Token::Text(text)) = self.current_token.clone() {
-                Ok(BpmnNode::Event(BpmnEvent::Middle(text)))
-            } else {
-                Err("Expected text after middle event".to_string())
-            }
-        } else {
-            Err("Expected a middle event".to_string())
-        }
-    }
-
-    // Parse an end event (e.g. `. End Event`)
-    fn parse_end_event(&mut self) -> Result<BpmnNode, String> {
-        if let Some(Token::EventEnd) = self.current_token {
-            // Advance to the next token
-            self.advance();
-            if let Some(Token::Text(text)) = self.current_token.clone() {
-                Ok(BpmnNode::Event(BpmnEvent::End(text)))
-            } else {
-                Err("Expected text after end event".to_string())
-            }
-        } else {
-            Err("Expected an end event".to_string())
+            Err(format!("Expected text after event, found: {:?}", self.current_token))
         }
     }
 }

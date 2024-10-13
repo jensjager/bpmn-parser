@@ -3,15 +3,18 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     EventStart,                   // `-` for start event
+    EventMiddle,                  // `-` for middle event (detected by context)
     EventEnd,                     // `.` for end event
     Text(String),                 // Any freeform text
     Eof,                          // End of file/input
 }
 
+#[derive(Clone)]
 pub struct Lexer<'a> {
     input: &'a str,                 // Input string
     position: usize,                // Current position in the input
     current_char: Option<char>,     // Current character being examined
+    seen_start: bool,               // State flag for distinguishing event start/middle
 }
 
 impl<'a> Lexer<'a> {
@@ -21,6 +24,7 @@ impl<'a> Lexer<'a> {
             input,
             position: 0,
             current_char: None,
+            seen_start: false,    // Initially, no start event has been seen
         };
         lexer.advance(); // Load the first character
         lexer
@@ -37,16 +41,23 @@ impl<'a> Lexer<'a> {
     }
 
     // Get the next token from the input
-    pub fn next_token(&mut self) -> Option<Token> {
+    pub fn  next_token(&mut self) -> Option<Token> {
         self.skip_whitespace(); // Skip any unnecessary whitespace
 
         match self.current_char {
             Some('-') => {
-                self.advance();
-                Some(Token::EventStart)
+                self.advance(); // Skip '-'
+                let event_type = if !self.seen_start { // First '-' is a Start event
+                    self.seen_start = true;  // Mark that we've seen a start event
+                    Token::EventStart
+                } else {
+                    Token::EventMiddle // Subsequent '-' are Middle events
+                };
+                Some(event_type)
             },
             Some('.') => {
-                self.advance();
+                self.advance(); // Skip '.'
+                self.seen_start = false; // Reset the state for the next sequence of events
                 Some(Token::EventEnd)
             },
             Some(c) if !c.is_whitespace() => {
@@ -77,11 +88,11 @@ impl<'a> Lexer<'a> {
         let mut text = String::new();
 
         while let Some(c) = self.current_char {
-            if c != '\n' {  // Keep reading until the newline (end of the line)
+            if c != '\n' && c != '-' && c != '.' {  // Stop at newlines or event symbols
                 text.push(c);
                 self.advance();
             } else {
-                break; // Stop at the newline
+                break;
             }
         }
         text.trim().to_string() // Trim any leading/trailing spaces
