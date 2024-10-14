@@ -28,30 +28,24 @@ impl<'a> Parser<'a> {
 
         while self.current_token != Token::Eof {
             match &self.current_token {
-                Token::EventStart => {
-                    self.advance();
-                    let label = self.parse_text()?;  // Get the label after the event
-                    let node_id = graph.add_node(BpmnEvent::Start(label));
+                Token::EventStart(label) => {
+                    let node_id = graph.add_node(BpmnEvent::Start(label.clone()));
 
                     if let Some(prev_id) = last_node_id {
                         graph.add_edge(prev_id, node_id); // Connect previous node
                     }
                     last_node_id = Some(node_id);
                 }
-                Token::EventMiddle => {
-                    self.advance();
-                    let label = self.parse_text()?;  // Get the label after the event
-                    let node_id = graph.add_node(BpmnEvent::Middle(label));
+                Token::EventMiddle(label) => {
+                    let node_id = graph.add_node(BpmnEvent::Middle(label.clone()));
 
                     if let Some(prev_id) = last_node_id {
                         graph.add_edge(prev_id, node_id); // Connect previous node
                     }
                     last_node_id = Some(node_id);
                 }
-                Token::EventEnd => {
-                    self.advance();
-                    let label = self.parse_text()?;  // Get the label after the event
-                    let node_id = graph.add_node(BpmnEvent::End(label));
+                Token::EventEnd(label) => {
+                    let node_id = graph.add_node(BpmnEvent::End(label.clone()));
 
                     if let Some(prev_id) = last_node_id {
                         graph.add_edge(prev_id, node_id); // Connect previous node
@@ -67,15 +61,5 @@ impl<'a> Parser<'a> {
         }
 
         Ok(graph)
-    }
-
-    // Helper to parse the text following an event symbol
-    fn parse_text(&mut self) -> Result<String, String> {
-        if let Token::Text(label) = &self.current_token {
-            let result = label.clone();
-            Ok(result)
-        } else {
-            Err(format!("Expected text after event, found: {:?}", self.current_token))
-        }
     }
 }

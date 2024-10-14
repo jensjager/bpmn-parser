@@ -2,9 +2,9 @@
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    EventStart,                   // `-` for start event
-    EventMiddle,                  // `-` for middle event (detected by context)
-    EventEnd,                     // `.` for end event
+    EventStart(String),           // `-` for start event
+    EventMiddle(String),          // `-` for middle event (detected by context)
+    EventEnd(String),             // `.` for end event
     Text(String),                 // Any freeform text
     Eof,                          // End of file/input
 }
@@ -47,18 +47,20 @@ impl<'a> Lexer<'a> {
         match self.current_char {
             Some('-') => {
                 self.advance(); // Skip '-'
+                let text: String = self.read_text(); // Read the text after the event symbol
                 let event_type = if !self.seen_start { // First '-' is a Start event
                     self.seen_start = true;  // Mark that we've seen a start event
-                    Token::EventStart
+                    Token::EventStart(text)
                 } else {
-                    Token::EventMiddle // Subsequent '-' are Middle events
+                    Token::EventMiddle(text) // Subsequent '-' are Middle events
                 };
                 Some(event_type)
             },
             Some('.') => {
                 self.advance(); // Skip '.'
+                let text: String = self.read_text(); // Read the text after the event symbol
                 self.seen_start = false; // Reset the state for the next sequence of events
-                Some(Token::EventEnd)
+                Some(Token::EventEnd(text))
             },
             Some(c) if !c.is_whitespace() => {
                 let text = self.read_text();
