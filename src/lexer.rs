@@ -5,6 +5,12 @@ pub enum Token {
     EventStart(String),           // `-` for start event
     EventMiddle(String),          // `-` for middle event (detected by context)
     EventEnd(String),             // `.` for end event
+    ActivityTask(String),         // `#` for task activity
+    GatewayExclusive,             // `X` for gateway
+    Join(String, String),         // `J` for join event
+    Label(String),                // `->` for branch label
+    Branch(String, String),       // Branch label and text
+    GatewayJoin(String),          // `<-` for join gateway
     Text(String),                 // Any freeform text
     Eof,                          // End of file/input
 }
@@ -41,12 +47,12 @@ impl<'a> Lexer<'a> {
     }
 
     // Get the next token from the input
-    pub fn  next_token(&mut self) -> Option<Token> {
+    pub fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace(); // Skip any unnecessary whitespace
 
         match self.current_char {
-            Some('-') => {
-                self.advance(); // Skip '-'
+            Some('#') => {
+                self.advance(); // Skip '#'
                 let text: String = self.read_text(); // Read the text after the event symbol
                 let event_type = if !self.seen_start { // First '-' is a Start event
                     self.seen_start = true;  // Mark that we've seen a start event
@@ -56,15 +62,66 @@ impl<'a> Lexer<'a> {
                 };
                 Some(event_type)
             },
+            Some('-') => {
+                self.advance(); // Skip '-'
+                if self.current_char == Some('>') {
+                    self.advance(); // Skip '>'
+                    let label: String = self.read_text();
+                    let text = if self.current_char == Some('"') {
+                        self.advance(); // Skip '"'
+                        let t: String = self.read_text();
+                        self.advance(); // Skip '"'
+                        t
+                    } else {
+                        String::new()
+                    };
+                    Some(Token::Branch(label, text))
+                } else {
+                    let text: String = self.read_text(); // Read the text after the event symbol
+                    Some(Token::ActivityTask(text))
+                }
+            },
             Some('.') => {
                 self.advance(); // Skip '.'
                 let text: String = self.read_text(); // Read the text after the event symbol
                 self.seen_start = false; // Reset the state for the next sequence of events
                 Some(Token::EventEnd(text))
             },
+            Some('<') => {
+                self.advance(); // Skip '<'
+                if self.current_char == Some('-') {
+                    self.advance(); // Skip '-'
+                    let label: String = self.read_text();
+                    Some(Token::GatewayJoin(label))
+                } else {
+                    None
+                }
+            },
+            Some('X') => {
+                self.advance(); // Skip 'X'
+                Some(Token::GatewayExclusive)
+            },
+            Some('J') => {
+                self.advance(); // Skip 'J'
+                let label: String = self.read_text(); // Read the text after the event symbol
+                let text = if self.current_char == Some('"') {
+                    self.advance(); // Skip '"'
+                    let t: String = self.read_text();
+                    self.advance(); // Skip '"'
+                    t
+                } else {
+                    String::new()
+                };
+                Some(Token::Join(label, text))
+            },
             Some(c) if !c.is_whitespace() => {
-                let text = self.read_text();
-                Some(Token::Text(text))
+                let mut text = self.read_text();
+                if text.ends_with(":") {
+                    text.pop(); // Remove the last character
+                    Some(Token::Label(text))
+                } else {
+                    Some(Token::Text(text))
+                }
             },
             None => Some(Token::Eof), // End of input
             _ => {
@@ -90,7 +147,7 @@ impl<'a> Lexer<'a> {
         let mut text = String::new();
 
         while let Some(c) = self.current_char {
-            if c != '\n' && c != '-' && c != '.' {  // Stop at newlines or event symbols
+            if c != '\n' && c != '-' && c != '.' && c != '"' {
                 text.push(c);
                 self.advance();
             } else {

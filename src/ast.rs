@@ -16,13 +16,17 @@ pub struct BpmnNode {
 pub struct BpmnEdge {
     pub from: usize,          // ID of the source node
     pub to: usize,            // ID of the destination node
+    pub text: Option<String>, // Edge text (optional)
 }
 
 #[derive(Debug, Clone)]
 pub enum BpmnEvent {
-    Start(String),  // Start event with label
-    Middle(String), // Middle event with label
-    End(String),    // End event with label
+    Start(String),              // Start event with label
+    Middle(String),             // Middle event with label
+    End(String),                // End event with label
+    GatewayExclusive,           // Exclusive gateway event
+    GatewayJoin(String),        // Join gateway event with label
+    ActivityTask(String),       // Task with label
 }
 
 impl BpmnGraph {
@@ -42,8 +46,8 @@ impl BpmnGraph {
     }
 
     // Adds a directed edge between two nodes
-    pub fn add_edge(&mut self, from: usize, to: usize) {
-        self.edges.push(BpmnEdge { from, to });
+    pub fn add_edge(&mut self, from: usize, to: usize, text: Option<String>) {
+        self.edges.push(BpmnEdge { from, to, text });
     }
 }
 
@@ -56,12 +60,19 @@ impl BpmnGraph {
                 BpmnEvent::Start(label) => println!("  Start Event: {} (ID: {})", label, node.id),
                 BpmnEvent::Middle(label) => println!("  Middle Event: {} (ID: {})", label, node.id),
                 BpmnEvent::End(label) => println!("  End Event: {} (ID: {})", label, node.id),
+                BpmnEvent::GatewayExclusive => println!("  GatewayExclusive Event (ID: {})", node.id),
+                BpmnEvent::ActivityTask(label) => println!("  ActivityTask: {} (ID: {})", label, node.id),
+                BpmnEvent::GatewayJoin(label) => println!("  GatewayJoin Event: {} (ID: {})", label, node.id),
             }
         }
 
         println!("Edges:");
         for edge in &self.edges {
-            println!("  From Node {} to Node {}", edge.from, edge.to);
+            if let Some(text) = &edge.text {
+                println!("  From Node {} to Node {}: '{}'", edge.from, edge.to, text);
+            } else {
+                println!("  From Node {} to Node {}", edge.from, edge.to);
+            }
         }
     }
 }
