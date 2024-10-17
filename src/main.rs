@@ -7,7 +7,14 @@ mod lexer;
 use lexer::Lexer;
 use parser::Parser;
 
+mod layout;
+
 fn main() {
+    // run_parser();
+    layout::testlayout::run_test_layout();
+}
+
+pub fn run_parser() {
     let input = r#"
     - Start Event
     - Middle Event

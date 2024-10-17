@@ -1,10 +1,11 @@
+#[derive(Debug)]
 pub struct Node {
     pub id: usize,
-    pub layer: Option<i32>
+    pub layer: Option<i32>,
 }
 
-impl node {
-    pub fn new(id: usize, layer: Option<i32>) -> node {
-        node { id, layer: None}
+impl Node {
+    pub fn new(id: usize, layer: Option<i32>) -> Self {
+        Node { id, layer }
     }
 }

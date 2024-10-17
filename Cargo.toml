@@ -4,3 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+good_lp = { version = "1.8.1" }
+svg = "0.18.0"

@@ -1,8 +1,11 @@
-struct Edge {
-    from: usize,
-    to: usize
+#[derive(Debug)]
+pub struct Edge {
+    pub from: usize,
+    pub to: usize,
 }
 
-pub fn new(from: usize, to: usize) -> Edge {
-    Edge { from, to }
+impl Edge {
+    pub fn new(from: usize, to: usize) -> Self {
+        Edge { from, to }
+    }
 }
