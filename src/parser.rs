@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use crate::lexer::{Token, Lexer};
-use crate::ast::{BpmnEvent, BpmnGraph};
+use crate::common::bpmn_event::BpmnEvent;
+use crate::common::graph::Graph;
+use crate::common::edge::Edge;
+
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -20,8 +23,8 @@ impl<'a> Parser<'a> {
         self.current_token = self.lexer.next_token().unwrap_or(Token::Eof);
     }
 
-    pub fn parse(&mut self) -> Result<BpmnGraph, String> {
-        let mut graph = BpmnGraph::new();
+    pub fn parse(&mut self) -> Result<Graph, String> {
+        let mut graph = Graph::new(vec![], vec![]);
         let mut last_node_id = None;
         let mut branches: HashMap<String, (usize, String)> = HashMap::new(); // branch label -> (node_id, branch text)
         let mut last_in_branch: HashMap<String, (usize, String)> = HashMap::new(); // Track the last node in each branch
@@ -32,33 +35,33 @@ impl<'a> Parser<'a> {
         while self.current_token != Token::Eof {
             match &self.current_token {
                 Token::EventStart(label) => {
-                    let node_id = graph.add_node(BpmnEvent::Start(label.clone()));
+                    let node_id = graph.add_node_noid(BpmnEvent::Start(label.clone()));
                     if let Some(prev_id) = last_node_id {
-                        graph.add_edge(prev_id, node_id, None);
+                        graph.add_edge(Edge::new(prev_id, node_id, None));
                     }
                     last_node_id = Some(node_id);
                 }
 
                 Token::EventMiddle(label) => {
-                    let node_id = graph.add_node(BpmnEvent::Middle(label.clone()));
+                    let node_id = graph.add_node_noid(BpmnEvent::Middle(label.clone()));
                     if let Some(prev_id) = last_node_id {
-                        graph.add_edge(prev_id, node_id, None);
+                        graph.add_edge(Edge::new(prev_id, node_id, None));
                     }
                     last_node_id = Some(node_id);
                 }
 
                 Token::EventEnd(label) => {
-                    let node_id = graph.add_node(BpmnEvent::End(label.clone()));
+                    let node_id = graph.add_node_noid(BpmnEvent::End(label.clone()));
                     if let Some(prev_id) = last_node_id {
-                        graph.add_edge(prev_id, node_id, None);
+                        graph.add_edge(Edge::new(prev_id, node_id, None));
                     }
                     last_node_id = Some(node_id);
                 }
 
                 Token::GatewayExclusive => {
-                    let node_id = graph.add_node(BpmnEvent::GatewayExclusive);
+                    let node_id = graph.add_node_noid(BpmnEvent::GatewayExclusive);
                     if let Some(prev_id) = last_node_id {
-                        graph.add_edge(prev_id, node_id, None);
+                        graph.add_edge(Edge::new(prev_id, node_id, None));
                     }
                     last_node_id = Some(node_id);
                     gateway_stack.push(Vec::new()); // Start a new set of branches
@@ -86,17 +89,17 @@ impl<'a> Parser<'a> {
                 }
 
                 Token::ActivityTask(label) => {
-                    let node_id = graph.add_node(BpmnEvent::ActivityTask(label.clone()));
+                    let node_id = graph.add_node_noid(BpmnEvent::ActivityTask(label.clone()));
                     if let Some(branch_label) = &current_branch {
                         if let Some(last_branch_node) = last_in_branch.get(branch_label) {
                             let edge_text = if last_branch_node.1.is_empty() { None } else { Some(last_branch_node.1.clone()) };
-                            graph.add_edge(last_branch_node.0, node_id, edge_text); // Connect the last node in branch
+                            graph.add_edge(Edge::new(last_branch_node.0, node_id, edge_text)); // Connect the last node in branch
                             last_in_branch.insert(branch_label.clone(), (node_id, String::new())); // Update last node in branch
                         } else {
                             return Err(format!("No start node found for branch '{}'", branch_label));
                         }
                     } else if let Some(prev_id) = last_node_id {
-                        graph.add_edge(prev_id, node_id, None);
+                        graph.add_edge(Edge::new(prev_id, node_id, None));
                     }
                     last_node_id = Some(node_id);
                 }
@@ -116,11 +119,11 @@ impl<'a> Parser<'a> {
                 }
 
                 Token::GatewayJoin(label) => {
-                    let node_id = graph.add_node(BpmnEvent::GatewayJoin(label.clone()));
+                    let node_id = graph.add_node_noid(BpmnEvent::GatewayJoin(label.clone()));
                     if let Some(joined_nodes) = join_gateway.remove(label) {
                         for prev_id in joined_nodes {
                             let edge_text = if prev_id.1.is_empty() { None } else { Some(prev_id.1.clone()) };
-                            graph.add_edge(prev_id.0, node_id, edge_text);
+                            graph.add_edge(Edge::new(prev_id.0, node_id, edge_text));
                         }
                     } else {
                         return Err(format!("No join recorded for label '{}'", label));
