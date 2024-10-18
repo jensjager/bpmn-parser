@@ -1,7 +1,8 @@
-use crate::layout::node::Node;
-use crate::layout::edge::Edge;
-use crate::layout::eliminate_back_edges::eliminate_back_edges; // Import the new function
-use std::collections::HashSet;
+// graph.rs
+use crate::common::node::Node;
+use crate::common::edge::Edge;
+use crate::layout::eliminate_back_edges::eliminate_back_edges;
+use crate::common::bpmn_event::BpmnEvent;
 
 /// Represents a graph consisting of nodes and edges.
 pub struct Graph {
@@ -19,12 +20,25 @@ impl Graph {
         self.nodes.push(node);
     }
 
+    pub fn add_node_noid(&mut self, bpmn_event: BpmnEvent) -> usize {
+        let id = if let Some(last_node) = self.nodes.last() {
+            last_node.id
+        } else {
+            0
+        };
+
+        let new_node = Node::new(id + 1, None, Some(bpmn_event));
+        
+        self.nodes.push(new_node);
+
+        id + 1
+    }
+
     /// Adds an edge to the graph.
     pub fn add_edge(&mut self, edge: Edge) {
         self.edges.push(edge);
     }
-
-    /// Removes back edges and makes the graph acyclic by calling the helper function from `back_edges.rs`.
+    
     pub fn eliminate_back_edges(&mut self) {
         eliminate_back_edges(self);
     }

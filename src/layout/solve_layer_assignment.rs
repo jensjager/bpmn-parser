@@ -1,4 +1,4 @@
-use crate::layout::graph::Graph;
+use crate::common::graph::Graph;
 use good_lp::{variable, variables, Expression};
 use good_lp::solvers::coin_cbc::coin_cbc;
 

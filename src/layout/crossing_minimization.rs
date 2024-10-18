@@ -1,4 +1,4 @@
-use crate::layout::graph::Graph;
+use crate::common::graph::Graph;
 use std::collections::HashMap;
 
 /// Reduces crossings in the graph by rearranging nodes within each layer.
