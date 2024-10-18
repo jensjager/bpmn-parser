@@ -27,7 +27,7 @@ impl Graph {
             0
         };
 
-        let new_node = Node::new(id + 1, None, Some(bpmn_event));
+        let new_node = Node::new(id + 1, None, None, Some(bpmn_event));
         
         self.nodes.push(new_node);
 
