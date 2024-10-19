@@ -1,8 +1,12 @@
 [package]
-name = "bpmn-parser"
-version = "0.1.0"
-edition = "2021"
+name = "untitled"  # Название проекта
+version = "0.1.0"  # Версия
+edition = "2021"   # Версия языка Rust
 
 [dependencies]
-good_lp = { version = "1.8.1" }
-svg = "0.18.0"
+roxmltree = "0.20.0"  # This is where dependencies go
+rand = "0.8"
+
+[lib]
+name = "tests"   # Название библиотеки
+path = "tests/src/lib.rs"  # путь к файлу библиотеки

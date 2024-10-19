@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" targetNamespace="http://bpmn.io/schema/bpmn" id="Definitions_1">
+  <process id="order_process" isExecutable="false">
+    <startEvent id="start_order" name="Start Order"/>
+    <task id="check_payment" name="Check Payment"/>
+    <exclusiveGateway id="payment_gateway" name="Payment Received?"/>
+    <task id="prepare_product" name="Prepare Product"/>
+    <task id="ship_product" name="Ship Product"/>
+    <task id="send_reminder" name="Send Payment Reminder"/>
+    <endEvent id="end_process" name="End Process"/>
+    <sequenceFlow id="flow1" sourceRef="start_order" targetRef="check_payment"/>
+    <sequenceFlow id="flow2" sourceRef="check_payment" targetRef="payment_gateway"/>
+    <sequenceFlow id="flow3" sourceRef="payment_gateway" targetRef="prepare_product" conditionExpression="true"/>
+    <sequenceFlow id="flow4" sourceRef="prepare_product" targetRef="ship_product"/>
+    <sequenceFlow id="flow5" sourceRef="payment_gateway" targetRef="send_reminder" conditionExpression="false"/>
+    <sequenceFlow id="flow6" sourceRef="ship_product" targetRef="end_process"/>
+    <sequenceFlow id="flow7" sourceRef="send_reminder" targetRef="end_process"/>
+  </process>
+</definitions>
