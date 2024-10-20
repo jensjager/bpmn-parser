@@ -18,41 +18,21 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set custom APT sources (new .sources format)
-      run: |
-        sudo mv /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.backup
-        
-        sudo tee /etc/apt/sources.list.d/ubuntu.sources <<EOF
-        Types: deb
-        URIs: http://ee.archive.ubuntu.com/ubuntu/
-        Suites: noble noble-updates noble-backports
-        Components: main restricted universe multiverse
-        Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-
-        Types: deb
-        URIs: http://security.ubuntu.com/ubuntu/
-        Suites: noble-security
-        Components: main restricted universe multiverse
-        Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-        EOF
-        
-        sudo apt-get update
-
     - name: Setup CBC
       run: |
-        sudo apt-get install coinor-cbc coinor-libcbc-dev
+        sudo apt install coinor-cbc coinor-libcbc-dev
 
     - name: Setup GCC
       run: |
-        sudo apt-get install g++
+        sudo apt install g++
 
     - name: Setup Build Essentials
       run: |
-        sudo apt-get install build-essential libstdc++-10-dev
+        sudo apt install build-essential libstdc++-10-dev
 
     - name: Setup Pkg-config
       run: |
-        sudo apt-get install pkg-config
+        sudo apt install pkg-config
 
     - name: Run ldconfig
       run: |
