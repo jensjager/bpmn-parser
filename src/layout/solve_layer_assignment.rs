@@ -2,7 +2,7 @@ use crate::common::graph::Graph;
 use good_lp::{variable, variables, Expression};
 use good_lp::solvers::coin_cbc::coin_cbc;
 
-pub(crate) fn solve_layer_assignment(graph: &Graph) -> Vec<(usize, i32)> {
+pub fn solve_layer_assignment(graph: &Graph) -> Vec<(usize, i32)> {
     use good_lp::*;
 
     // Loome muutujad iga sõlme kihi jaoks
