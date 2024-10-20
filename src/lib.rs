@@ -8,12 +8,13 @@ use crate::common::bpmn_event::BpmnEvent;
 
 use crate::layout::solve_layer_assignment::solve_layer_assignment;
 use crate::layout::crossing_minimization::reduce_crossings;
+use crate::layout::node_positioning::assign_xy_to_nodes;
+use crate::layout::assign_bend_points::assign_bend_points;
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 
-pub fn generate_bpmn(graph: &Graph, positions: &HashMap<usize, (f64, f64)>) -> String {
+pub fn generate_bpmn(graph: &Graph) -> String {
     let mut bpmn = String::from(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -127,7 +128,8 @@ exporterVersion="5.17.0">
 
     // Add BPMN shapes for nodes using calculated positions
     for (i, node) in graph.nodes.iter().enumerate() {
-        let (x, y) = positions.get(&node.id).cloned().unwrap_or((0.0, 0.0));
+        let x = node.x.unwrap_or(0.0);
+        let y = node.y.unwrap_or(0.0);
         let (width, height) = node_sizes[i];
 
         let bpmn_element_id = get_node_bpmn_id(node);
@@ -147,8 +149,8 @@ exporterVersion="5.17.0">
         let from_node = graph.nodes.iter().find(|n| n.id == edge.from).unwrap();
         let to_node = graph.nodes.iter().find(|n| n.id == edge.to).unwrap();
 
-        let (from_x, from_y) = positions.get(&from_node.id).cloned().unwrap_or((0.0, 0.0));
-        let (to_x, to_y) = positions.get(&to_node.id).cloned().unwrap_or((0.0, 0.0));
+        let (from_x, from_y) = (from_node.x.unwrap_or(0.0), from_node.y.unwrap_or(0.0));
+        let (to_x, to_y) = (to_node.x.unwrap_or(0.0), to_node.y.unwrap_or(0.0));
 
         let (from_width, from_height) = get_node_size(from_node);
         let (to_width, to_height) = get_node_size(to_node);
@@ -165,18 +167,31 @@ exporterVersion="5.17.0">
 
         bpmn.push_str(&format!(
             r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">
-  <di:waypoint x="{:.2}" y="{:.2}" />
-  <di:waypoint x="{:.2}" y="{:.2}" />
-</bpmndi:BPMNEdge>
-"#,
+  <di:waypoint x="{:.2}" y="{:.2}" />"#,
             edge.from,
             edge.to,
             edge.from,
             edge.to,
             edge_from_x,
             edge_from_y,
-            edge_to_x,
-            edge_to_y
+        ));
+
+        // Bend points
+        for &(x, y) in &edge.bend_points {
+            bpmn.push_str(&format!(
+                r#"
+  <di:waypoint x="{:.2}" y="{:.2}" />"#,
+                x, y
+            ));
+        }
+
+        // End waypoint
+        bpmn.push_str(&format!(
+            r#"
+  <di:waypoint x="{:.2}" y="{:.2}" />
+</bpmndi:BPMNEdge>
+"#,
+            edge_to_x, edge_to_y
         ));
     }
 
@@ -224,47 +239,17 @@ fn get_node_size(node: &Node) -> (usize, usize) {
     }
 }
 
-pub fn perform_layout(graph: &Graph) -> HashMap<usize, (f64, f64)> {
+pub fn perform_layout(graph: &mut Graph) {
     // Assign layers
     let layers = solve_layer_assignment(graph);
     // Reduce crossings
     let new_layers = reduce_crossings(graph, &layers);
 
-    // Assign positions
-    let positions = assign_positions(&new_layers);
+    // Assign positions to nodes using the imported function
+    assign_xy_to_nodes(graph, &new_layers);
 
-    positions
-}
-
-fn assign_positions(layers: &Vec<(usize, i32)>) -> HashMap<usize, (f64, f64)> {
-    use std::collections::HashMap;
-
-    let mut positions = HashMap::new();
-
-    // Group nodes by layer
-    let mut layer_map: HashMap<i32, Vec<usize>> = HashMap::new();
-    for &(node_id, layer) in layers {
-        layer_map.entry(layer).or_insert(Vec::new()).push(node_id);
-    }
-
-    // Sort layers
-    let mut sorted_layers: Vec<i32> = layer_map.keys().cloned().collect();
-    sorted_layers.sort();
-
-    // Assign positions
-    let layer_spacing = 150.0;
-    let node_spacing = 150.0;
-
-    for (layer_index, layer) in sorted_layers.iter().enumerate() {
-        let nodes_in_layer = &layer_map[layer];
-        for (node_index, &node_id) in nodes_in_layer.iter().enumerate() {
-            let x = node_index as f64 * node_spacing;
-            let y = layer_index as f64 * layer_spacing;
-            positions.insert(node_id, (x, y));
-        }
-    }
-
-    positions
+    // Assign bend points to edges using the imported function
+    assign_bend_points(graph);
 }
 
 #[cfg(test)]
@@ -280,24 +265,26 @@ mod tests {
         let mut graph = Graph::new(vec![], vec![]);
 
         // Create nodes with BpmnEvent
-        let start_node =
-            Node::new(0, None, Some(BpmnEvent::Start("Start Event".to_string())));
+        let start_node = Node::new(0, None, None, Some(BpmnEvent::Start("Start Event".to_string())));
         let middle_node1 = Node::new(
             1,
+            None,
             None,
             Some(BpmnEvent::ActivityTask("Task 1".to_string())),
         );
         let middle_node2 = Node::new(
             2,
             None,
+            None,
             Some(BpmnEvent::ActivityTask("Task 2".to_string())),
         );
         let middle_node3 = Node::new(
             3,
             None,
+            None,
             Some(BpmnEvent::ActivityTask("Task 3".to_string())),
         );
-        let end_node = Node::new(4, None, Some(BpmnEvent::End("End Event".to_string())));
+        let end_node = Node::new(4, None, None, Some(BpmnEvent::End("End Event".to_string())));
 
         graph.add_node(start_node);
         graph.add_node(middle_node1);
@@ -312,9 +299,11 @@ mod tests {
         graph.add_edge(Edge::new(3, 4, None));
 
         // Perform layout
-        let positions = perform_layout(&graph);
+        perform_layout(&mut graph);
 
         // Generate BPMN
-        let bpmn_xml = generate_bpmn(&graph, &positions);
+        let _bpmn_xml = generate_bpmn(&graph);
+
+        // Optionally, assert on `bpmn_xml` or inspect the output file.
     }
 }
