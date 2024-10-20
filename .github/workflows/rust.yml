@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "workflow" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -31,7 +31,9 @@ jobs:
         echo 'cbc-src = "0.2.8"' >> Cargo.toml
 
     - name: Release
-      run: cargo build --release
+      run: |
+        export RUSTFLAGS="-C link-arg=-lstdc++"
+        cargo build --release
 
     - name: Upload release
       uses: actions/upload-artifact@v4
