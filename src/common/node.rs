@@ -5,15 +5,21 @@ use crate::common::bpmn_event::BpmnEvent;
 pub struct Node {
     pub id: usize,
     pub event: Option<BpmnEvent>,
-    pub layer: Option<i32>,
+    pub x: Option<f64>, // X-koordinaat
+    pub y: Option<f64>, // Y-koordinaat
 }
 
 impl Node {
-    pub fn new(id: usize, layer: Option<i32>, event: Option<BpmnEvent>) -> Self {
-        Node { id, layer, event }
+    pub fn new(id: usize, x: Option<f64>, y: Option<f64>, event: Option<BpmnEvent>) -> Self {
+        Node { id, x, y, event }
     }
 
-    pub fn with_default_event(id: usize, layer: Option<i32>) -> Self {
-        Node { id, layer, event: None }
+    pub fn with_default_event(id: usize, x: Option<f64>, y: Option<f64>) -> Self {
+        Node { id, x, y, event: None }
+    }
+
+    pub fn set_position(&mut self, x: f64, y: f64) {
+        self.x = Some(x);
+        self.y = Some(y);
     }
 }
