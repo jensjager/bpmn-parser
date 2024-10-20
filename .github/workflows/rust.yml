@@ -1,4 +1,4 @@
-name: Rust
+name: Rust Cross-Platform Build
 
 on:
   push:
@@ -12,55 +12,47 @@ env:
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Update APT sources to match local setup
+    - name: Setup CBC (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
       run: |
-        sudo bash -c 'cat <<EOF > /etc/apt/sources.list
-        deb http://security.ubuntu.com/ubuntu noble-security main restricted
-        deb http://ee.archive.ubuntu.com/ubuntu noble main restricted universe multiverse
-        deb http://ee.archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
-        deb http://ee.archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse
-        deb https://packages.microsoft.com/repos/code stable main
-        EOF'
         sudo apt-get update
+        sudo apt-get install -y coinor-cbc coinor-libcbc-dev
 
-
-    - name: Setup CBC
+    - name: Setup vcpkg and install CBC (Windows)
+      if: matrix.os == 'windows-latest'
       run: |
-        sudo apt install coinor-cbc coinor-libcbc-dev
+        git clone https://github.com/microsoft/vcpkg.git ${{ runner.temp }}/vcpkg
+        ${{ runner.temp }}/vcpkg/bootstrap-vcpkg.bat
+        ${{ runner.temp }}/vcpkg/vcpkg install cbc --triplet x64-windows-static
+      shell: cmd
 
-    - name: Setup GCC
+    - name: Add cbc-src to Cargo.toml
       run: |
-        sudo apt install g++
+        echo 'cbc-src = "0.2.8"' >> Cargo.toml
 
-    - name: Setup Build Essentials
-      run: |
-        sudo apt install build-essential libstdc++-10-dev
-
-    - name: Setup Pkg-config
-      run: |
-        sudo apt install pkg-config
-
-    - name: Run ldconfig
-      run: |
-        sudo ldconfig
-
-    # - name: Add cbc to cargo.toml
-    #   run: |
-    #     echo 'cbc-src = "0.2.8"' >> Cargo.toml
-
-    - name: Release
+    - name: Release (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
       run: |
         export RUSTFLAGS="-C link-arg=-lstdc++"
         cargo build --release
 
+    - name: Release (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        set RUSTFLAGS=-C target-feature=+crt-static
+        cargo build --release --target x86_64-pc-windows-msvc
+      shell: cmd
+
     - name: Upload release
       uses: actions/upload-artifact@v4
       with:
-        name: release
-        path: target/release
+        name: ${{ matrix.os }}-release
+        path: target/release/
