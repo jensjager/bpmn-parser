@@ -38,6 +38,10 @@ jobs:
       run: |
         echo 'cbc-src = "0.2.8"' >> Cargo.toml
 
+    - name: Add coincbc-sys to Cargo.toml
+      run: |
+        echo 'coincbc-sys = "0.2.5"' >> Cargo.toml
+
     - name: Add cbc_src to main.rs
       run: |
         echo 'extern crate cbc_src;' >> src/main.rs
