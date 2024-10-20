@@ -18,9 +18,21 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Set custom APT sources
+      run: |
+        sudo mv /etc/apt/sources.list /etc/apt/sources.list.backup
+
+        echo "deb http://security.ubuntu.com/ubuntu noble-security main" | sudo tee /etc/apt/sources.list
+        echo "deb http://ee.archive.ubuntu.com/ubuntu noble main" | sudo tee -a /etc/apt/sources.list
+        echo "deb http://ee.archive.ubuntu.com/ubuntu noble-updates main" | sudo tee -a /etc/apt/sources.list
+        echo "deb http://ee.archive.ubuntu.com/ubuntu noble-backports main" | sudo tee -a /etc/apt/sources.list
+        echo "deb https://packages.microsoft.com/repos/code stable main" | sudo tee -a /etc/apt/sources.list
+        echo "deb https://ppa.launchpadcontent.net/oibaf/graphics-drivers/ubuntu noble main" | sudo tee -a /etc/apt/sources.list
+
+        sudo apt-get update
+
     - name: Setup CBC
       run: |
-        sudo apt-get update
         sudo apt-get install coinor-cbc coinor-libcbc-dev
 
     - name: Setup GCC
@@ -38,17 +50,6 @@ jobs:
     - name: Run ldconfig
       run: |
         sudo ldconfig
-
-    - name: Check CBC library installation
-      run: |
-        ls -l /lib/x86_64-linux-gnu/libCbcSolver.so*
-
-    - name: Ensure correct symbolic link
-      run: |
-        if [ -f /lib/x86_64-linux-gnu/libCbcSolver.so.3.1 ]; then
-          sudo ln -sf /lib/x86_64-linux-gnu/libCbcSolver.so.3.1 /lib/x86_64-linux-gnu/libCbcSolver.so.3
-        fi
-
 
     # - name: Add cbc to cargo.toml
     #   run: |
