@@ -24,7 +24,7 @@ This DSL allows users to define business processes using a simplified syntax. Th
   - Example:  
     `. EndEvent` – Marks the end of the process.
 
-- **`X ->`** : Declares a **branching point**, with each branch labeled after `->`. You can also add optional text enclosed in quotes.
+- **`X`** : Declares a **branching point**, with each branch labeled after `->`. You can also add optional text enclosed in quotes.
   - Example:  
     `X ->Branch1`  
     `X ->Branch2 "Optional text"`
