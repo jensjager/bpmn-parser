@@ -3,30 +3,53 @@
 mod parser;
 mod ast;
 mod lexer;  
+mod to_xml;
+mod common;
+mod layout;
+mod read_input;
 
 use common::graph;
+use layout::solve_layer_assignment;
 use lexer::Lexer;
 use parser::Parser;
 use ast::Ast;
 use common::bpmn_event::BpmnEvent;
+use crate::to_xml::generate_bpmn;
+use layout::crossing_minimization::reduce_crossings;
+use layout::node_positioning::assign_xy_to_nodes;
+use layout::assign_bend_points::assign_bend_points;
+use layout::solve_layer_assignment::solve_layer_assignment;
+use crate::read_input::read_lines;
 
-mod common;
-mod layout;
+use std::env;
+
 
 fn main() {
-    run_parser();
+    let args: Vec<String> = env::args().collect();
+
+    // Check if the required argument is passed
+    if args.len() < 2 {
+        eprintln!("Usage: {} <input_string>", args[0]);
+        std::process::exit(1);
+    }
+
+    let input_data = &args[1];
+
+    let input = read_lines(input_data).unwrap();
+
+    run_parser(&input);
 //     layout::testlayout::run_test_layout();
 }
 
-pub fn run_parser() {
-    let input = r#"
-    - Start Event
-    - Middle Event
-    - Activity Task
-    - Gateway Exclusive
-    - Activity Task
-    . End Event
-    "#;
+pub fn run_parser(input: &str) {
+    // let input = r#"
+    // - Start Event
+    // - Middle Event
+    // - Activity Task
+    // - Gateway Exclusive
+    // - Activity Task
+    // . End Event
+    // "#;
 
     // Initialize the lexer with the input
     let lexer = Lexer::new(input);
@@ -40,19 +63,26 @@ pub fn run_parser() {
         Ok(mut graph) => {
             println!("Parsed BPMN Graph:");
             
-            println!("Before back-edge elimination:");
-            for edge in &graph.edges {
-                println!("Edge from {} to {}", edge.from, edge.to);
+            let layers = solve_layer_assignment(&graph);
+
+            println!("\nLayer assignment after back-edge elimination:");
+            for (node_id, layer) in &layers {
+                println!("Node {}: Layer {}", node_id, layer);
             }
 
-            graph.eliminate_back_edges();
+            // Ristumiste minimeerimine
+            let new_layers = reduce_crossings(&mut graph, &layers);
 
-            println!("After back-edge elimination:");
-            for edge in &graph.edges {
-                println!("Edge from {} to {}", edge.from, edge.to);
+            // X-Y määramine
+            assign_xy_to_nodes(&mut graph, &new_layers);
+
+            println!("\nNode positions after X-Y assignment:");
+            for node in &graph.nodes {
+                println!("Node {}: x = {:?}, y = {:?}", node.id, node.x, node.y);
             }
 
-            println!("\nPrinting graph:");
+            // Servade painutamine
+            assign_bend_points(&mut graph);
 
             
 
@@ -79,9 +109,11 @@ pub fn run_parser() {
                     println!("  From Node {} to Node {}", edge.from, edge.to);
                 }
             }
+            let bpmn = generate_bpmn(&graph);
         },
         Err(e) => {
             eprintln!("Error parsing input: {}", e);
         },
+
     }
 }
