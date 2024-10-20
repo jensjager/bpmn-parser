@@ -26,7 +26,6 @@ jobs:
         deb http://ee.archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
         deb http://ee.archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse
         deb https://packages.microsoft.com/repos/code stable main
-        deb https://ppa.launchpadcontent.net/oibaf/graphics-drivers/ubuntu noble main
         EOF'
         sudo apt-get update
 
