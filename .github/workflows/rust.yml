@@ -18,13 +18,26 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup
+    - name: Setup CBC
       run: |
         sudo apt-get update
-        sudo apt-get install  coinor-cbc coinor-libcbc-dev
+        sudo apt-get install coinor-cbc coinor-libcbc-dev
+
+    - name: Setup GCC
+      run: |
         sudo apt-get install g++
+
+    - name: Setup Build Essentials
+      run: |
         sudo apt-get install build-essential libstdc++-10-dev
+
+    - name: Setup Pkg-config
+      run: |
         sudo apt-get install pkg-config
+
+    - name: Run ldconfig
+      run: |
+        sudo ldconfig
 
     - name: Add cbc to cargo.toml
       run: |
