@@ -18,17 +18,24 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set custom APT sources
+    - name: Set custom APT sources (new .sources format)
       run: |
-        sudo mv /etc/apt/sources.list /etc/apt/sources.list.backup
+        sudo mv /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.backup
+        
+        sudo tee /etc/apt/sources.list.d/ubuntu.sources <<EOF
+        Types: deb
+        URIs: http://ee.archive.ubuntu.com/ubuntu/
+        Suites: noble noble-updates noble-backports
+        Components: main restricted universe multiverse
+        Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 
-        echo "deb http://security.ubuntu.com/ubuntu noble-security main" | sudo tee /etc/apt/sources.list
-        echo "deb http://ee.archive.ubuntu.com/ubuntu noble main" | sudo tee -a /etc/apt/sources.list
-        echo "deb http://ee.archive.ubuntu.com/ubuntu noble-updates main" | sudo tee -a /etc/apt/sources.list
-        echo "deb http://ee.archive.ubuntu.com/ubuntu noble-backports main" | sudo tee -a /etc/apt/sources.list
-        echo "deb https://packages.microsoft.com/repos/code stable main" | sudo tee -a /etc/apt/sources.list
-        echo "deb https://ppa.launchpadcontent.net/oibaf/graphics-drivers/ubuntu noble main" | sudo tee -a /etc/apt/sources.list
-
+        Types: deb
+        URIs: http://security.ubuntu.com/ubuntu/
+        Suites: noble-security
+        Components: main restricted universe multiverse
+        Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+        EOF
+        
         sudo apt-get update
 
     - name: Setup CBC
