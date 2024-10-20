@@ -18,6 +18,19 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Update APT sources to match local setup
+      run: |
+        sudo bash -c 'cat <<EOF > /etc/apt/sources.list
+        deb http://security.ubuntu.com/ubuntu noble-security main restricted
+        deb http://ee.archive.ubuntu.com/ubuntu noble main restricted universe multiverse
+        deb http://ee.archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
+        deb http://ee.archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse
+        deb https://packages.microsoft.com/repos/code stable main
+        deb https://ppa.launchpadcontent.net/oibaf/graphics-drivers/ubuntu noble main
+        EOF'
+        sudo apt-get update
+
+
     - name: Setup CBC
       run: |
         sudo apt install coinor-cbc coinor-libcbc-dev
