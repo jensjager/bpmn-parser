@@ -18,11 +18,13 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup cbc solver
+    - name: Setup
       run: |
         sudo apt-get update
         sudo apt-get install  coinor-cbc coinor-libcbc-dev
         sudo apt-get install g++
+        sudo apt-get install build-essential libstdc++-10-dev
+        sudo apt-get install pkg-config
 
     - name: Add cbc to cargo.toml
       run: |
@@ -35,4 +37,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: release
-        path: target/release/bpmn-parser
+        path: target/release
