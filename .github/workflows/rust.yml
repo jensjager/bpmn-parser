@@ -39,9 +39,20 @@ jobs:
       run: |
         sudo ldconfig
 
-    - name: Add cbc to cargo.toml
+    - name: Check CBC library installation
       run: |
-        echo 'cbc-src = "0.2.8"' >> Cargo.toml
+        ls -l /lib/x86_64-linux-gnu/libCbcSolver.so*
+
+    - name: Ensure correct symbolic link
+      run: |
+        if [ -f /lib/x86_64-linux-gnu/libCbcSolver.so.3.1 ]; then
+          sudo ln -sf /lib/x86_64-linux-gnu/libCbcSolver.so.3.1 /lib/x86_64-linux-gnu/libCbcSolver.so.3
+        fi
+
+
+    # - name: Add cbc to cargo.toml
+    #   run: |
+    #     echo 'cbc-src = "0.2.8"' >> Cargo.toml
 
     - name: Release
       run: |
