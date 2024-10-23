@@ -1,8 +1,8 @@
-name: Rust
+name: Rust Cross-Platform Build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "workflow" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -12,22 +12,40 @@ env:
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest ]
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup cbc solver
+    - name: Setup CBC (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install  coinor-cbc coinor-libcbc-dev
+        sudo apt-get install -y coinor-cbc coinor-libcbc-dev
 
-    - name: Release
-      run: cargo build --release
+    - name: Add cbc-src to Cargo.toml
+      run: |
+        echo 'cbc-src = "0.2.8"' >> Cargo.toml
+
+    - name: Add coincbc-sys to Cargo.toml
+      run: |
+        echo 'coincbc-sys = "0.2.5"' >> Cargo.toml
+
+    - name: Add cbc_src to main.rs
+      run: |
+        echo 'extern crate cbc_src;' >> src/main.rs
+        
+    - name: Release (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        export RUSTFLAGS="-C link-arg=-lstdc++"
+        cargo build --release
 
     - name: Upload release
       uses: actions/upload-artifact@v4
       with:
-        name: release
-        path: target/release/bpmn-parser
+        name: ${{ matrix.os }}-release
+        path: target/release/
