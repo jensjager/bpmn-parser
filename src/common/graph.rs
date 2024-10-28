@@ -20,14 +20,14 @@ impl Graph {
         self.nodes.push(node);
     }
 
-    pub fn add_node_noid(&mut self, bpmn_event: BpmnEvent) -> usize {
+    pub fn add_node_noid(&mut self, bpmn_event: BpmnEvent, pool: Option<String>, lane: Option<String>) -> usize {
         let id = if let Some(last_node) = self.nodes.last() {
             last_node.id
         } else {
             0
         };
 
-        let new_node = Node::new(id + 1, None, None, Some(bpmn_event));
+        let new_node = Node::new(id + 1, None, None, Some(bpmn_event), pool, lane);
         
         self.nodes.push(new_node);
 

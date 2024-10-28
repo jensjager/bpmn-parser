@@ -43,11 +43,28 @@ fn main() {
 
 pub fn run_parser(input: &str) {
     // let input = r#"
-    // - Start Event
-    // - Middle Event
+    // = Pool 1
+    // == Lane 1
+    // - some node
+    // == Lane 2
+    // # Start Event
+    // # Middle Event
+    // X ->above"Go Here" ->below"No, here!"
+    // above: 
+    // - Above
+    // J endjoin 
+
+    // below: 
+    // - And beyond
+    // J endjoin 
+
+    // <-endjoin
     // - Activity Task
-    // - Gateway Exclusive
-    // - Activity Task
+
+    // = Pool 2
+    // - some node2
+    // = Pool 1
+    // == Lane 2
     // . End Event
     // "#;
 

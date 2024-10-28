@@ -31,37 +31,51 @@ impl<'a> Parser<'a> {
         let mut join_gateway: HashMap<String, Vec<(usize, String)>> = HashMap::new(); // join label -> list of node_ids to join
         let mut current_branch: Option<String> = None;
         let mut gateway_stack: Vec<Vec<String>> = Vec::new(); // Stack for managing nested branches
+        let mut current_pool: Option<String> = None;
+        let mut current_lane: Option<String> = None;
 
         while self.current_token != Token::Eof {
             match &self.current_token {
+                Token::Pool(label) => {
+                    current_pool = Some(label.clone());
+                    current_lane = None;
+                }
+    
+                Token::Lane(label) => {
+                    current_lane = Some(label.clone());
+                }
+                
                 Token::EventStart(label) => {
-                    let node_id = graph.add_node_noid(BpmnEvent::Start(label.clone()));
+                    let node_id = graph.add_node_noid(BpmnEvent::Start(label.clone()), current_pool.clone(), current_lane.clone());
+
                     if let Some(prev_id) = last_node_id {
-                        graph.add_edge(Edge::new(prev_id, node_id, None));
+                        graph.add_edge(Edge::new(prev_id, node_id, None, current_pool.clone(), current_lane.clone()));
                     }
                     last_node_id = Some(node_id);
                 }
 
                 Token::EventMiddle(label) => {
-                    let node_id = graph.add_node_noid(BpmnEvent::Middle(label.clone()));
+                    let node_id = graph.add_node_noid(BpmnEvent::Middle(label.clone()), current_pool.clone(), current_lane.clone());
+
                     if let Some(prev_id) = last_node_id {
-                        graph.add_edge(Edge::new(prev_id, node_id, None));
+                        graph.add_edge(Edge::new(prev_id, node_id, None, current_pool.clone(), current_lane.clone()));
                     }
                     last_node_id = Some(node_id);
                 }
 
                 Token::EventEnd(label) => {
-                    let node_id = graph.add_node_noid(BpmnEvent::End(label.clone()));
+                    let node_id = graph.add_node_noid(BpmnEvent::End(label.clone()), current_pool.clone(), current_lane.clone());
+
                     if let Some(prev_id) = last_node_id {
-                        graph.add_edge(Edge::new(prev_id, node_id, None));
+                        graph.add_edge(Edge::new(prev_id, node_id, None, current_pool.clone(), current_lane.clone()));
                     }
                     last_node_id = Some(node_id);
                 }
 
                 Token::GatewayExclusive => {
-                    let node_id = graph.add_node_noid(BpmnEvent::GatewayExclusive);
+                    let node_id = graph.add_node_noid(BpmnEvent::GatewayExclusive, current_pool.clone(), current_lane.clone());
                     if let Some(prev_id) = last_node_id {
-                        graph.add_edge(Edge::new(prev_id, node_id, None));
+                        graph.add_edge(Edge::new(prev_id, node_id, None, current_pool.clone(), current_lane.clone()));
                     }
                     last_node_id = Some(node_id);
                     gateway_stack.push(Vec::new()); // Start a new set of branches
@@ -89,17 +103,18 @@ impl<'a> Parser<'a> {
                 }
 
                 Token::ActivityTask(label) => {
-                    let node_id = graph.add_node_noid(BpmnEvent::ActivityTask(label.clone()));
+                    let node_id = graph.add_node_noid(BpmnEvent::ActivityTask(label.clone()), current_pool.clone(), current_lane.clone());
+                    
                     if let Some(branch_label) = &current_branch {
                         if let Some(last_branch_node) = last_in_branch.get(branch_label) {
                             let edge_text = if last_branch_node.1.is_empty() { None } else { Some(last_branch_node.1.clone()) };
-                            graph.add_edge(Edge::new(last_branch_node.0, node_id, edge_text)); // Connect the last node in branch
+                            graph.add_edge(Edge::new(last_branch_node.0, node_id, edge_text, current_pool.clone(), current_lane.clone())); // Connect the last node in branch
                             last_in_branch.insert(branch_label.clone(), (node_id, String::new())); // Update last node in branch
                         } else {
                             return Err(format!("No start node found for branch '{}'", branch_label));
                         }
                     } else if let Some(prev_id) = last_node_id {
-                        graph.add_edge(Edge::new(prev_id, node_id, None));
+                        graph.add_edge(Edge::new(prev_id, node_id, None, current_pool.clone(), current_lane.clone()));
                     }
                     last_node_id = Some(node_id);
                 }
@@ -119,11 +134,11 @@ impl<'a> Parser<'a> {
                 }
 
                 Token::GatewayJoin(label) => {
-                    let node_id = graph.add_node_noid(BpmnEvent::GatewayJoin(label.clone()));
+                    let node_id = graph.add_node_noid(BpmnEvent::GatewayJoin(label.clone()), current_pool.clone(), current_lane.clone());
                     if let Some(joined_nodes) = join_gateway.remove(label) {
                         for prev_id in joined_nodes {
                             let edge_text = if prev_id.1.is_empty() { None } else { Some(prev_id.1.clone()) };
-                            graph.add_edge(Edge::new(prev_id.0, node_id, edge_text));
+                            graph.add_edge(Edge::new(prev_id.0, node_id, edge_text, current_pool.clone(), current_lane.clone()));
                         }
                     } else {
                         return Err(format!("No join recorded for label '{}'", label));

@@ -2,6 +2,8 @@
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
+    Pool(String),                 // `=` for pool
+    Lane(String),                 // `==` for lane
     EventStart(String),           // `-` for start event
     EventMiddle(String),          // `-` for middle event (detected by context)
     EventEnd(String),             // `.` for end event
@@ -51,6 +53,17 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace(); // Skip any unnecessary whitespace
 
         match self.current_char {
+            Some('=') => {
+                self.advance(); // Skip '='
+                if self.current_char == Some('=') {
+                    self.advance(); // Skip second '=' for lanes
+                    let lane_name = self.read_text();
+                    Some(Token::Lane(lane_name))
+                } else {
+                    let pool_name = self.read_text();
+                    Some(Token::Pool(pool_name))
+                }
+            },
             Some('#') => {
                 self.advance(); // Skip '#'
                 let text: String = self.read_text(); // Read the text after the event symbol
