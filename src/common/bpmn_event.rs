@@ -6,4 +6,14 @@ pub enum BpmnEvent {
     GatewayExclusive,           // Exclusive gateway event
     GatewayJoin(String),        // Join gateway event with label
     ActivityTask(String),       // Task with label
+
+    // Recently added
+    MessageEvent(String),
+    TimerEvent(String),
+    ConditionalEvent(String),
+    SignalEvent(String),
+    ErrorEvent(String),
+    EscalationEvent(String),
+    CompensateEvent(String),
+    TerminateEvent(String),
 }
