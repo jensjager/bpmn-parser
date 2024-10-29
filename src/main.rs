@@ -1,18 +1,14 @@
 // src/main.rs
 
 mod parser;
-mod ast;
 mod lexer;  
 mod to_xml;
 mod common;
 mod layout;
 mod read_input;
 
-use common::graph;
-use layout::solve_layer_assignment;
 use lexer::Lexer;
 use parser::Parser;
-use ast::Ast;
 use common::bpmn_event::BpmnEvent;
 use crate::to_xml::generate_bpmn;
 use layout::crossing_minimization::reduce_crossings;
@@ -57,7 +53,6 @@ pub fn run_parser(input: &str) {
     // Initialize the parser with the lexer
     let mut parser = Parser::new(lexer);
 
-    let ast = Ast::new();
     // Parse the input and handle the result
     match parser.parse() {
         Ok(mut graph) => {
@@ -109,7 +104,7 @@ pub fn run_parser(input: &str) {
                     println!("  From Node {} to Node {}", edge.from, edge.to);
                 }
             }
-            let bpmn = generate_bpmn(&graph);
+            generate_bpmn(&graph);
         },
         Err(e) => {
             eprintln!("Error parsing input: {}", e);
