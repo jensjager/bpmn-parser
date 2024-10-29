@@ -137,7 +137,95 @@ exporterVersion="5.17.0">
 "#,
     );
 
-    // Добавляем завершающий элемент диаграммы
+    // Define node sizes based on event types
+    // Defineeri sõlmede suurused otse
+    let default_node_size = (100, 80);
+    let gateway_size = (50, 50);
+    let event_size = (36, 36);
+
+    let node_sizes: Vec<(usize, usize)> = graph
+        .nodes
+        .iter()
+        .map(|node| match &node.event {
+            Some(BpmnEvent::Start(_)) | Some(BpmnEvent::End(_)) => event_size,
+            Some(BpmnEvent::GatewayExclusive) | Some(BpmnEvent::GatewayJoin(_)) => gateway_size,
+            Some(BpmnEvent::Middle(_)) | Some(BpmnEvent::ActivityTask(_)) => default_node_size,
+            _ => default_node_size,
+        })
+        .collect();
+
+
+
+    // Add BPMN shapes for nodes using calculated positions
+    for (i, node) in graph.nodes.iter().enumerate() {
+        let x = node.x.unwrap_or(0.0);
+        let y = node.y.unwrap_or(0.0);
+        let (width, height) = node_sizes[i];
+
+        let bpmn_element_id = get_node_bpmn_id(node);
+
+        bpmn.push_str(&format!(
+            r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}">
+      <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
+      <bpmndi:BPMNLabel />
+    </bpmndi:BPMNShape>
+"#,
+            bpmn_element_id, bpmn_element_id, x, y, width, height
+        ));
+    }
+
+    // Add BPMN edges for sequence flows with adjusted waypoints
+    for edge in &graph.edges {
+        let from_node = graph.nodes.iter().find(|n| n.id == edge.from).unwrap();
+        let to_node = graph.nodes.iter().find(|n| n.id == edge.to).unwrap();
+
+        let (from_x, from_y) = (from_node.x.unwrap_or(0.0), from_node.y.unwrap_or(0.0));
+        let (to_x, to_y) = (to_node.x.unwrap_or(0.0), to_node.y.unwrap_or(0.0));
+
+        let (from_width, from_height) = get_node_size(from_node);
+        let (to_width, to_height) = get_node_size(to_node);
+
+        let (edge_from_x, edge_from_y) = (
+            from_x + (from_width as f64), // Võtame alguspunkti X-koordinaadi, nihutades seda poole laiuse võrra
+            from_y + (from_height as f64) / 2.0 // Võtame keskjoone
+        );
+
+        let (edge_to_x, edge_to_y) = (
+            to_x, // Võtame lõpp-punkti X-koordinaadi, nihutades seda poole laiuse võrra
+            to_y + (to_height as f64) / 2.0 // Võtame keskjoone
+        );
+
+
+        bpmn.push_str(&format!(
+            r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">
+  <di:waypoint x="{:.2}" y="{:.2}" />"#,
+            edge.from,
+            edge.to,
+            edge.from,
+            edge.to,
+            edge_from_x,
+            edge_from_y,
+        ));
+
+        // Bend points
+        for &(x, y) in &edge.bend_points {
+            bpmn.push_str(&format!(
+                r#"
+  <di:waypoint x="{:.2}" y="{:.2}" />"#,
+                x, y
+            ));
+        }
+
+        // End waypoint
+        bpmn.push_str(&format!(
+            r#"
+  <di:waypoint x="{:.2}" y="{:.2}" />
+</bpmndi:BPMNEdge>
+"#,
+            edge_to_x, edge_to_y
+        ));
+    }
+
     bpmn.push_str(
         r#"    </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
@@ -170,7 +258,7 @@ fn get_node_bpmn_id(node: &Node) -> String {
     }
 }
 
-fn get_node_size(node: &Node) -> (usize, usize) {
+pub(crate) fn get_node_size(node: &Node) -> (usize, usize) {
     if let Some(event) = &node.event {
         match event {
             BpmnEvent::Start(_) | BpmnEvent::End(_) => (36, 36),

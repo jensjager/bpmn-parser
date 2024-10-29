@@ -2,7 +2,7 @@ use crate::common::graph::Graph;
 use std::collections::HashMap;
 
 /// Reduces crossings in the graph by rearranging nodes within each layer.
-pub fn reduce_crossings(graph: &mut Graph, layers: &Vec<(usize, i32)>) -> Vec<(usize, i32)> {
+pub fn reduce_crossings(graph: &Graph, layers: &Vec<(usize, i32)>) -> Vec<(usize, i32)> {
     let mut layer_map: HashMap<i32, Vec<usize>> = HashMap::new();
 
     // Group nodes by their layers
