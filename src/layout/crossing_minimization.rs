@@ -59,9 +59,9 @@ fn align_connected_nodes(graph: &Graph, nodes_in_layer: &mut Vec<usize>) {
     }
 
     // Update the nodes in the layer with their aligned X positions
-    for node in nodes_in_layer.iter_mut() {
-        if let Some(&x) = x_position_map.get(node) {
-            println!("Paigutan sõlme {} X-koordinaadile: {}", node, x);
-        }
-    }
+    // for node in nodes_in_layer.iter_mut() {
+    //     if let Some(&_x) = x_position_map.get(node) {
+    //         println!("Paigutan sõlme {} X-koordinaadile: {}", node, x);
+    //     }
+    // }
 }

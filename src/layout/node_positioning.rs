@@ -31,7 +31,7 @@ pub fn assign_xy_to_nodes(graph: &mut Graph, layers: &Vec<(usize, i32)>) {
             y_position += node_spacing;
 
             if let Some(node) = graph.nodes.iter_mut().find(|n| n.id == *node_id) {
-                println!("Määran sõlmele {} koordinaadid: x = {}, y = {}", node_id, x, y);
+                // println!("Määran sõlmele {} koordinaadid: x = {}, y = {}", node_id, x, y);
                 node.set_position(x, y);
             } else {
                 println!("Sõlme {} ei leitud graafis", node_id);
