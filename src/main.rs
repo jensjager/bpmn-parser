@@ -23,30 +23,26 @@ use std::env;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    // Check if the required argument is passed
-    if args.len() < 2 {
-        eprintln!("Usage: {} <input_string>", args[0]);
-        std::process::exit(1);
-    }
+    // Use "input.txt" if no argument is provided
+    let input_data = if args.len() < 2 {
+        "input.txt".to_string()
+    } else {
+        args[1].clone()
+    };
 
-    let input_data = &args[1];
-
-    let input = read_lines(input_data).unwrap();
+    // Try to read the lines from the input file or exit if there's an error
+    let input = match read_lines(&input_data) {
+        Ok(lines) => lines,
+        Err(e) => {
+            eprintln!("Error reading file {}: {}", input_data, e);
+            std::process::exit(1);
+        }
+    };
 
     run_parser(&input);
-//     layout::testlayout::run_test_layout();
 }
 
 pub fn run_parser(input: &str) {
-    // let input = r#"
-    // - Start Event
-    // - Middle Event
-    // - Activity Task
-    // - Gateway Exclusive
-    // - Activity Task
-    // . End Event
-    // "#;
-
     // Initialize the lexer with the input
     let lexer = Lexer::new(input);
 
