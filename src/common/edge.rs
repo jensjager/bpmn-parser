@@ -16,17 +16,12 @@ impl Edge {
         }
     }
 
-    pub fn with_default_text(from: usize, to: usize) -> Self {
-        Edge {
-            from,
-            to,
-            text: None,
-            bend_points: vec![], // Alguses tühjad painutuspunktid
-        }
-    }
-
-    // Lisa painutuspunktid
-    pub fn add_bend_point(&mut self, x: f64, y: f64) {
-        self.bend_points.push((x, y)); // Lisa (x, y) paar painutuspunktina
-    }
+    // pub fn with_default_text(from: usize, to: usize) -> Self {
+    //     Edge {
+    //         from,
+    //         to,
+    //         text: None,
+    //         bend_points: vec![], // Alguses tühjad painutuspunktid
+    //     }
+    // }
 }

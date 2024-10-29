@@ -1,6 +1,5 @@
 use crate::common::graph::Graph;
-use good_lp::{variable, variables, Expression};
-use good_lp::solvers::coin_cbc::coin_cbc;
+use good_lp::variables;
 
 pub fn solve_layer_assignment(graph: &Graph) -> Vec<(usize, i32)> {
     use good_lp::*;

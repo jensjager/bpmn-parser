@@ -26,7 +26,7 @@ pub fn assign_xy_to_nodes(graph: &mut Graph, layers: &Vec<(usize, i32)>) {
         let mut y_position = 100.0;
 
         // Sõlmede joondamine kihis
-        for (index, node_id) in nodes.iter().enumerate() {
+        for node_id in nodes {
             let y = y_position;
             y_position += node_spacing;
 
