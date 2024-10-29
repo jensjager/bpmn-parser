@@ -11,6 +11,17 @@ use crate::layout::assign_bend_points::assign_bend_points;
 use std::fs::File;
 use std::io::Write;
 
+/// Adds color attributes for `stroke_color` and `fill_color` to the BPMN node XML if they exist.
+fn add_color_attributes(stroke_color: Option<&String>, fill_color: Option<&String>) -> String {
+    let stroke = stroke_color
+        .map(|color| format!(r#" bioc:stroke="{}""#, color))
+        .unwrap_or_default();
+    let fill = fill_color
+        .map(|color| format!(r#" bioc:fill="{}""#, color))
+        .unwrap_or_default();
+    format!("{}{}", stroke, fill)
+}
+
 pub fn generate_bpmn(graph: &Graph) -> String {
     let mut bpmn = String::from(
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -25,8 +36,12 @@ exporterVersion="5.17.0">
 "#,
     );
 
-    // Create nodes
+    // Создаем узлы
     for node in &graph.nodes {
+        let stroke_color = node.stroke_color.as_ref();
+        let fill_color = node.fill_color.as_ref();
+        let color_attributes = add_color_attributes(stroke_color, fill_color);
+
         if let Some(event) = &node.event {
             match event {
                 BpmnEvent::Start(label) => {
@@ -79,9 +94,25 @@ exporterVersion="5.17.0">
                 }
             }
         }
+
+        // Добавляем `BPMNShape` с атрибутами цвета
+        bpmn.push_str(&format!(
+            r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}"{}>
+      <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
+      <bpmndi:BPMNLabel />
+    </bpmndi:BPMNShape>
+"#,
+            get_node_bpmn_id(node),
+            get_node_bpmn_id(node),
+            color_attributes,
+            node.x.unwrap_or(0.0),
+            node.y.unwrap_or(0.0),
+            get_node_size(node).0,
+            get_node_size(node).1
+        ));
     }
 
-    // Create sequence flows
+    // Создаем последовательные потоки
     for edge in &graph.edges {
         let from_node = graph.nodes.iter().find(|n| n.id == edge.from).unwrap();
         let to_node = graph.nodes.iter().find(|n| n.id == edge.to).unwrap();
@@ -98,7 +129,7 @@ exporterVersion="5.17.0">
 
     bpmn.push_str(r#"  </bpmn:process>"#);
 
-    // Add BPMN diagram details
+    // Добавляем детали диаграммы BPMN
     bpmn.push_str(
         r#"
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
@@ -202,7 +233,7 @@ exporterVersion="5.17.0">
 "#,
     );
 
-    // Write BPMN to file (optional)
+    // Записываем BPMN в файл (опционально)
     let file_path = "generated_bpmn.bpmn";
     let mut file = File::create(file_path).expect("Unable to create file");
     file.write_all(bpmn.as_bytes())
