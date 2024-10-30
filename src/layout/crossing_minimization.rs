@@ -2,7 +2,7 @@ use crate::common::graph::Graph;
 use std::collections::HashMap;
 
 /// Reduces crossings in the graph by rearranging nodes within each layer.
-pub fn reduce_crossings(graph: &mut Graph, layers: &Vec<(usize, i32)>) -> Vec<(usize, i32)> {
+pub fn reduce_crossings(graph: &Graph, layers: &Vec<(usize, i32)>) -> Vec<(usize, i32)> {
     let mut layer_map: HashMap<i32, Vec<usize>> = HashMap::new();
 
     // Group nodes by their layers
@@ -59,9 +59,9 @@ fn align_connected_nodes(graph: &Graph, nodes_in_layer: &mut Vec<usize>) {
     }
 
     // Update the nodes in the layer with their aligned X positions
-    for node in nodes_in_layer.iter_mut() {
-        if let Some(&x) = x_position_map.get(node) {
-            println!("Paigutan sõlme {} X-koordinaadile: {}", node, x);
-        }
-    }
+    // for node in nodes_in_layer.iter_mut() {
+    //     if let Some(&_x) = x_position_map.get(node) {
+    //         println!("Paigutan sõlme {} X-koordinaadile: {}", node, x);
+    //     }
+    // }
 }

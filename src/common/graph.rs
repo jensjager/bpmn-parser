@@ -1,7 +1,6 @@
 // graph.rs
 use crate::common::node::Node;
 use crate::common::edge::Edge;
-use crate::layout::eliminate_back_edges::eliminate_back_edges;
 use crate::common::bpmn_event::BpmnEvent;
 
 /// Represents a graph consisting of nodes and edges.
@@ -13,11 +12,6 @@ pub struct Graph {
 impl Graph {
     pub fn new(nodes: Vec<Node>, edges: Vec<Edge>) -> Self {
         Graph { nodes, edges }
-    }
-
-    /// Adds a node to the graph.
-    pub fn add_node(&mut self, node: Node) {
-        self.nodes.push(node);
     }
 
     pub fn add_node_noid(&mut self, bpmn_event: BpmnEvent, pool: Option<String>, lane: Option<String>) -> usize {
@@ -37,9 +31,5 @@ impl Graph {
     /// Adds an edge to the graph.
     pub fn add_edge(&mut self, edge: Edge) {
         self.edges.push(edge);
-    }
-    
-    pub fn eliminate_back_edges(&mut self) {
-        eliminate_back_edges(self);
     }
 }

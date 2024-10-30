@@ -1,1 +1,4 @@
 /target/
+generated_bpmn.bpmn
+.idea/*
+Cargo.lock
