@@ -17,9 +17,9 @@ impl Node {
         Node { id, x, y, stroke_color: None, event, fill_color: None }
     }
 
-    pub fn with_default_event(id: usize, x: Option<f64>, y: Option<f64>) -> Self {
-        Node { id, x, y, stroke_color: None, event: None, fill_color: None }
-    }
+    // pub fn with_default_event(id: usize, x: Option<f64>, y: Option<f64>) -> Self {
+    //     Node { id, x, y, stroke_color: None, event: None, fill_color: None }
+    // }
 
     pub fn set_position(&mut self, x: f64, y: f64) {
         self.x = Some(x);

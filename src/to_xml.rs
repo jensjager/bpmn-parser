@@ -1,13 +1,7 @@
-use crate::common::edge::Edge;
+// use crate::common::edge::Edge;
 use crate::common::graph::Graph;
 use crate::common::node::Node;
-use crate::common::bpmn_event::BpmnEvent;
-
-use crate::layout::solve_layer_assignment::solve_layer_assignment;
-use crate::layout::crossing_minimization::reduce_crossings;
-use crate::layout::node_positioning::assign_xy_to_nodes;
-use crate::layout::assign_bend_points::assign_bend_points;
-
+use crate::common::bpmn_event::{self, BpmnEvent};
 use std::fs::File;
 use std::io::Write;
 
@@ -183,7 +177,7 @@ exporterVersion="5.17.0">
         let (to_x, to_y) = (to_node.x.unwrap_or(0.0), to_node.y.unwrap_or(0.0));
 
         let (from_width, from_height) = get_node_size(from_node);
-        let (to_width, to_height) = get_node_size(to_node);
+        let (_to_width, to_height) = get_node_size(to_node);
 
         let (edge_from_x, edge_from_y) = (
             from_x + (from_width as f64), // Võtame alguspunkti X-koordinaadi, nihutades seda poole laiuse võrra
@@ -260,27 +254,10 @@ fn get_node_bpmn_id(node: &Node) -> String {
 
 pub(crate) fn get_node_size(node: &Node) -> (usize, usize) {
     if let Some(event) = &node.event {
-        match event {
-            BpmnEvent::Start(_) | BpmnEvent::End(_) => (36, 36),
-            BpmnEvent::Middle(_) | BpmnEvent::ActivityTask(_) => (100, 80),
-            BpmnEvent::GatewayExclusive | BpmnEvent::GatewayJoin(_) => (50, 50),
-        }
+        bpmn_event::get_node_size(event)
     } else {
         (100, 80) // Default size
-    }
-}
-
-pub fn perform_layout(graph: &mut Graph) {
-    // Assign layers
-    let layers = solve_layer_assignment(graph);
-    // Reduce crossings
-    let new_layers = reduce_crossings(graph, &layers);
-
-    // Assign positions to nodes using the imported function
-    assign_xy_to_nodes(graph, &new_layers);
-
-    // Assign bend points to edges using the imported function
-    assign_bend_points(graph);
+    } 
 }
 
 #[cfg(test)]
@@ -289,39 +266,41 @@ mod tests {
     use crate::common::bpmn_event::BpmnEvent;
     use crate::common::edge::Edge;
     use crate::common::graph::Graph;
-    use crate::common::node::Node;
+    use crate::layout::solve_layer_assignment::solve_layer_assignment;
+    use crate::layout::crossing_minimization::reduce_crossings;
+    use crate::layout::node_positioning::assign_xy_to_nodes;
+    use crate::layout::assign_bend_points::assign_bend_points;
+
+
+    fn perform_layout(graph: &mut Graph) {
+        // Assign layers
+        let layers = solve_layer_assignment(graph);
+        // Reduce crossings
+        let new_layers = reduce_crossings(graph, &layers);
+    
+        // Assign positions to nodes using the imported function
+        assign_xy_to_nodes(graph, &new_layers);
+    
+        // Assign bend points to edges using the imported function
+        assign_bend_points(graph);
+    }
+    
 
     #[test]
     fn test_generate_bpmn_with_multiple_middle_events() {
         let mut graph = Graph::new(vec![], vec![]);
 
-        // Create nodes with BpmnEvent
-        let start_node = Node::new(0, None, None, Some(BpmnEvent::Start("Start Event".to_string())));
-        let middle_node1 = Node::new(
-            1,
-            None,
-            None,
-            Some(BpmnEvent::ActivityTask("Task 1".to_string())),
-        );
-        let middle_node2 = Node::new(
-            2,
-            None,
-            None,
-            Some(BpmnEvent::ActivityTask("Task 2".to_string())),
-        );
-        let middle_node3 = Node::new(
-            3,
-            None,
-            None,
-            Some(BpmnEvent::ActivityTask("Task 3".to_string())),
-        );
-        let end_node = Node::new(4, None, None, Some(BpmnEvent::End("End Event".to_string())));
+        let start_event = BpmnEvent::Start("Start Event".to_string());
+        let middle_event = BpmnEvent::ActivityTask("Task 1".to_string());
+        let middle_event2 = BpmnEvent::ActivityTask("Task 2".to_string());
+        let middle_event3 = BpmnEvent::ActivityTask("Task 3".to_string());
+        let end_event = BpmnEvent::End("End Event".to_string());
 
-        graph.add_node(start_node);
-        graph.add_node(middle_node1);
-        graph.add_node(middle_node2);
-        graph.add_node(middle_node3);
-        graph.add_node(end_node);
+        graph.add_node_noid(start_event);
+        graph.add_node_noid(middle_event);
+        graph.add_node_noid(middle_event2);
+        graph.add_node_noid(middle_event3);
+        graph.add_node_noid(end_event);
 
         // Create edges
         graph.add_edge(Edge::new(0, 1, None));

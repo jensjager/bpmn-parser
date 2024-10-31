@@ -13,7 +13,7 @@ pub fn assign_bend_points(graph: &mut Graph) {
 
         let mut bend_points = vec![];
 
-        let (edge_from_x, edge_from_y) = if from_node.x.unwrap() < to_node.x.unwrap() {
+        if from_node.x.unwrap() < to_node.x.unwrap() {
             (from_node.x.unwrap() + from_width as f64, from_node.y.unwrap() + from_height as f64 / 2.0)
         } else if from_node.x.unwrap() > to_node.x.unwrap() {
             (from_node.x.unwrap(), from_node.y.unwrap() + from_height as f64 / 2.0)
@@ -23,7 +23,7 @@ pub fn assign_bend_points(graph: &mut Graph) {
             (from_node.x.unwrap() + from_width as f64 / 2.0, from_node.y.unwrap())
         };
 
-        let (edge_to_x, edge_to_y) = if from_node.x.unwrap() < to_node.x.unwrap() {
+        if from_node.x.unwrap() < to_node.x.unwrap() {
             (to_node.x.unwrap(), to_node.y.unwrap() + to_height as f64 / 2.0)
         } else if from_node.x.unwrap() > to_node.x.unwrap() {
             (to_node.x.unwrap() + to_width as f64, to_node.y.unwrap() + to_height as f64 / 2.0)

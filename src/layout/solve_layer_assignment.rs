@@ -1,6 +1,5 @@
 use crate::common::graph::Graph;
-use good_lp::{variable, variables, Expression};
-use good_lp::solvers::coin_cbc::coin_cbc;
+use good_lp::variables;
 
 pub fn solve_layer_assignment(graph: &Graph) -> Vec<(usize, i32)> {
     use good_lp::*;
@@ -23,7 +22,11 @@ pub fn solve_layer_assignment(graph: &Graph) -> Vec<(usize, i32)> {
         objective = objective + (to_var - from_var);
     }
 
+
+
     let mut problem = vars.minimise(objective).using(coin_cbc);
+
+    problem.set_parameter("logLevel", "0");
 
     // Lisa piirangud iga serva jaoks: L_v >= L_u + 1
     for edge in &graph.edges {
