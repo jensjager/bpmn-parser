@@ -1,5 +1,5 @@
+use crate::common::bpmn_event;
 use crate::common::graph::Graph;
-use crate::to_xml::get_node_size;
 
 /// Määrab servadele painutuspunktid ainult juhul, kui see on vajalik.
 pub fn assign_bend_points(graph: &mut Graph) {
@@ -8,8 +8,8 @@ pub fn assign_bend_points(graph: &mut Graph) {
         let to_node = graph.nodes.iter().find(|n| n.id == edge.to).unwrap();
 
         // Kasuta funktsiooni `get_node_size`, et määrata sõlmede suurused
-        let (from_width, from_height) = get_node_size(from_node);
-        let (to_width, to_height) = get_node_size(to_node);
+        let (from_width, from_height) = bpmn_event::get_node_size(from_node.event.as_ref().unwrap());
+        let (to_width, to_height) = bpmn_event::get_node_size(to_node.event.as_ref().unwrap());
 
         let mut bend_points = vec![];
 

@@ -153,7 +153,7 @@ exporterVersion="5.17.0">
     // Add BPMN shapes for nodes using calculated positions
     for (i, node) in graph.nodes.iter().enumerate() {
         let x = node.x.unwrap_or(0.0);
-        let y = node.y.unwrap_or(0.0);
+        let y = node.y.unwrap_or(0.0) + node.y_offset.unwrap_or(0.0);
         let (width, height) = node_sizes[i];
 
         let bpmn_element_id = get_node_bpmn_id(node);
@@ -173,8 +173,8 @@ exporterVersion="5.17.0">
         let from_node = graph.nodes.iter().find(|n| n.id == edge.from).unwrap();
         let to_node = graph.nodes.iter().find(|n| n.id == edge.to).unwrap();
 
-        let (from_x, from_y) = (from_node.x.unwrap_or(0.0), from_node.y.unwrap_or(0.0));
-        let (to_x, to_y) = (to_node.x.unwrap_or(0.0), to_node.y.unwrap_or(0.0));
+        let (from_x, from_y) = (from_node.x.unwrap_or(0.0), from_node.y.unwrap_or(0.0) + from_node.y_offset.unwrap_or(0.0));
+        let (to_x, to_y) = (to_node.x.unwrap_or(0.0), to_node.y.unwrap_or(0.0) + to_node.y_offset.unwrap_or(0.0));
 
         let (from_width, from_height) = get_node_size(from_node);
         let (_to_width, to_height) = get_node_size(to_node);
