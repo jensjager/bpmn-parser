@@ -9,12 +9,11 @@ pub enum Token {
     EventEnd(String),             // `.` for end event
     ActivityTask(String),         // `#` for task activity
     GatewayExclusive,             // `X` for gateway
-    GoFrom(String, String),       // `G` for goto label
-    GoTo(String),         // `G`
+    Go,                       // `G` for go 
     Join(String, String),         // `J` for join event
     Label(String),                // `->` for branch label
     Branch(String, String),       // Branch label and text
-    GatewayJoin(String),          // `<-` for join gateway
+    JoinLabel(String),          // `<-` for join gateway
     Text(String),                 // Any freeform text
     Eof,                          // End of file/input
 }
@@ -82,14 +81,7 @@ impl<'a> Lexer<'a> {
                 if self.current_char == Some('>') {
                     self.advance(); // Skip '>'
                     let label: String = self.read_text();
-                    let text = if self.current_char == Some('"') {
-                        self.advance(); // Skip '"'
-                        let t: String = self.read_text();
-                        self.advance(); // Skip '"'
-                        t
-                    } else {
-                        String::new()
-                    };
+                    let text = self.read_quoted_text();
                     Some(Token::Branch(label, text))
                 } else {
                     let text: String = self.read_text(); // Read the text after the event symbol
@@ -107,7 +99,7 @@ impl<'a> Lexer<'a> {
                 if self.current_char == Some('-') {
                     self.advance(); // Skip '-'
                     let label: String = self.read_text();
-                    Some(Token::GatewayJoin(label))
+                    Some(Token::JoinLabel(label))
                 } else {
                     None
                 }
@@ -118,48 +110,12 @@ impl<'a> Lexer<'a> {
             },
             Some('G') => {
                 self.advance(); // Skip 'G'
-                self.skip_whitespace();
-                if self.current_char == Some('-') {
-                    self.advance(); // Skip '-'
-                    if self.current_char == Some('>') {
-                        self.advance(); // Skip '>'
-                        let label: String = self.read_text();
-                        let text = if self.current_char == Some('"') {
-                            self.advance(); // Skip '"'
-                            let t: String = self.read_text();
-                            self.advance(); // Skip '"'
-                            t
-                        } else {
-                            String::new()
-                        };
-                        Some(Token::GoFrom(label, text))
-                    } else {
-                        None
-                    }
-                } else if self.current_char == Some('<') {
-                    self.advance(); // Skip '<'
-                    if self.current_char == Some('-') {
-                        self.advance(); // Skip '-'
-                        let label: String = self.read_text();
-                        Some(Token::GoTo(label))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
+                Some(Token::Go)
             },
             Some('J') => {
                 self.advance(); // Skip 'J'
                 let label: String = self.read_text(); // Read the text after the event symbol
-                let text = if self.current_char == Some('"') {
-                    self.advance(); // Skip '"'
-                    let t: String = self.read_text();
-                    self.advance(); // Skip '"'
-                    t
-                } else {
-                    String::new()
-                };
+                let text = self.read_quoted_text();
                 Some(Token::Join(label, text))
             },
             Some(c) if !c.is_whitespace() => {
@@ -204,4 +160,16 @@ impl<'a> Lexer<'a> {
         }
         text.trim().to_string() // Trim any leading/trailing spaces
     }
+
+    fn read_quoted_text(&mut self) -> String {
+        if self.current_char == Some('"') {
+            self.advance(); // Skip the opening quote
+            let text: String = self.read_text();
+            self.advance(); // Skip the closing quote
+            text
+        } else {
+            String::new()
+        }
+    }
+    
 }
