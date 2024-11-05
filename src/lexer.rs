@@ -9,6 +9,8 @@ pub enum Token {
     EventEnd(String),             // `.` for end event
     ActivityTask(String),         // `#` for task activity
     GatewayExclusive,             // `X` for gateway
+    GoFrom(String, String),       // `G` for goto label
+    GoTo(String),         // `G`
     Join(String, String),         // `J` for join event
     Label(String),                // `->` for branch label
     Branch(String, String),       // Branch label and text
@@ -46,6 +48,11 @@ impl<'a> Lexer<'a> {
         } else {
             self.current_char = None; // End of input
         }
+    }
+
+    pub fn peek_token(&mut self) -> Option<Token> {
+        let mut lexer = self.clone();
+        lexer.next_token()
     }
 
     // Get the next token from the input
@@ -113,6 +120,39 @@ impl<'a> Lexer<'a> {
             Some('X') => {
                 self.advance(); // Skip 'X'
                 Some(Token::GatewayExclusive)
+            },
+            Some('G') => {
+                self.advance(); // Skip 'G'
+                self.skip_whitespace();
+                if self.current_char == Some('-') {
+                    self.advance(); // Skip '-'
+                    if self.current_char == Some('>') {
+                        self.advance(); // Skip '>'
+                        let label: String = self.read_text();
+                        let text = if self.current_char == Some('"') {
+                            self.advance(); // Skip '"'
+                            let t: String = self.read_text();
+                            self.advance(); // Skip '"'
+                            t
+                        } else {
+                            String::new()
+                        };
+                        Some(Token::GoFrom(label, text))
+                    } else {
+                        None
+                    }
+                } else if self.current_char == Some('<') {
+                    self.advance(); // Skip '<'
+                    if self.current_char == Some('-') {
+                        self.advance(); // Skip '-'
+                        let label: String = self.read_text();
+                        Some(Token::GoTo(label))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
             },
             Some('J') => {
                 self.advance(); // Skip 'J'

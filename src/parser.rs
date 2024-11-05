@@ -27,6 +27,8 @@ impl<'a> Parser<'a> {
         let mut graph = Graph::new(vec![], vec![]);
         let mut last_node_id = None;
         let mut branches: HashMap<String, (usize, String)> = HashMap::new(); // branch label -> (node_id, branch text)
+        let mut go_from: HashMap<String, (usize, String)> = HashMap::new();
+        let mut go_to: HashMap<String, usize> = HashMap::new();
         let mut last_in_branch: HashMap<String, (usize, String)> = HashMap::new(); // Track the last node in each branch
         let mut join_gateway: HashMap<String, Vec<(usize, String)>> = HashMap::new(); // join label -> list of node_ids to join
         let mut current_branch: Option<String> = None;
@@ -39,10 +41,12 @@ impl<'a> Parser<'a> {
                 Token::Pool(label) => {
                     current_pool = Some(label.clone());
                     current_lane = None;
+                    last_node_id = None;
                 }
     
                 Token::Lane(label) => {
                     current_lane = Some(label.clone());
+                    last_node_id = None;
                 }
                 
                 Token::EventStart(label) => {
@@ -73,12 +77,20 @@ impl<'a> Parser<'a> {
                 }
 
                 Token::GatewayExclusive => {
-                    let node_id = graph.add_node_noid(BpmnEvent::GatewayExclusive, current_pool.clone(), current_lane.clone());
+                    let node_id: usize = graph.add_node_noid(BpmnEvent::GatewayExclusive, current_pool.clone(), current_lane.clone());
                     if let Some(prev_id) = last_node_id {
                         graph.add_edge(Edge::new(prev_id, node_id, None, current_pool.clone(), current_lane.clone()));
                     }
                     last_node_id = Some(node_id);
                     gateway_stack.push(Vec::new()); // Start a new set of branches
+                }
+
+                Token::GoFrom(label, text) => {
+                    go_from.insert(label.clone(), (last_node_id.unwrap(), text.clone()));
+                }
+
+                Token::GoTo(label) => {
+                    go_to.insert(label.clone(), last_node_id.unwrap());
                 }
 
                 Token::Branch(label, text) => {
@@ -159,6 +171,15 @@ impl<'a> Parser<'a> {
             }
 
             self.advance();
+        }
+
+        for (label, (from_id, text)) in go_from {
+            if let Some(to_id) = go_to.get(&label) {
+                let edge_text = if text.is_empty() { None } else { Some(text.clone()) };
+                graph.add_edge(Edge::new(from_id, *to_id, edge_text, current_pool.clone(), current_lane.clone()));
+            } else {
+                return Err(format!("No 'go to' found for label '{}'", label));
+            }
         }
 
         Ok(graph)
