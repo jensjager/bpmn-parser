@@ -1,7 +1,7 @@
 // use crate::common::edge::Edge;
 use crate::common::graph::Graph;
 use crate::common::node::Node;
-use crate::common::bpmn_event::BpmnEvent;
+use crate::common::bpmn_event::{self, BpmnEvent};
 use std::fs::File;
 use std::io::Write;
 
@@ -254,14 +254,10 @@ fn get_node_bpmn_id(node: &Node) -> String {
 
 pub(crate) fn get_node_size(node: &Node) -> (usize, usize) {
     if let Some(event) = &node.event {
-        match event {
-            BpmnEvent::Start(_) | BpmnEvent::End(_) => (36, 36),
-            BpmnEvent::Middle(_) | BpmnEvent::ActivityTask(_) => (100, 80),
-            BpmnEvent::GatewayExclusive | BpmnEvent::GatewayJoin(_) => (50, 50),
-        }
+        bpmn_event::get_node_size(event)
     } else {
         (100, 80) // Default size
-    }
+    } 
 }
 
 #[cfg(test)]
