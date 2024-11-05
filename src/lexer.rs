@@ -50,11 +50,6 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn peek_token(&mut self) -> Option<Token> {
-        let mut lexer = self.clone();
-        lexer.next_token()
-    }
-
     // Get the next token from the input
     pub fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace(); // Skip any unnecessary whitespace
