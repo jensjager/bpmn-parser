@@ -156,6 +156,7 @@ impl<'a> Parser<'a> {
                         return Err(format!("No join recorded for label '{}'", label));
                     }
                     last_node_id = Some(node_id);
+                    current_branch = None;
                     
                     // Check if we've finished processing all branches for this gateway
                     if let Some(gateway_branches) = gateway_stack.pop() {

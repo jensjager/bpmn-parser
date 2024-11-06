@@ -4,10 +4,10 @@
 pub enum Token {
     Pool(String),                 // `=` for pool
     Lane(String),                 // `==` for lane
-    EventStart(String),           // `-` for start event
-    EventMiddle(String),          // `-` for middle event (detected by context)
+    EventStart(String),           // `#` for start event
+    EventMiddle(String),          // `#` for middle event (detected by context)
     EventEnd(String),             // `.` for end event
-    ActivityTask(String),         // `#` for task activity
+    ActivityTask(String),         // `-` for task activity
     GatewayExclusive,             // `X` for gateway
     GoFrom(String, String),       // `G` for goto label
     GoTo(String),         // `G`
