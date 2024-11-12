@@ -9,11 +9,11 @@ pub enum Token {
     EventEnd(String),             // `.` for end event
     ActivityTask(String),         // `#` for task activity
     GatewayExclusive,             // `X` for gateway
-    Go,                       // `G` for go 
+    Go,                           // `G` for go 
     Join(String, String),         // `J` for join event
-    Label(String),                // `->` for branch label
+    Label(String),                // `:` for branch label
     Branch(String, String),       // Branch label and text
-    JoinLabel(String),          // `<-` for join gateway
+    JoinLabel(String),            // `<-` for join gateway
     Text(String),                 // Any freeform text
     Eof,                          // End of file/input
 }
