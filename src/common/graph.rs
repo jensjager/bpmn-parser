@@ -7,7 +7,7 @@ use crate::common::bpmn_event::BpmnEvent;
 pub struct Graph {
     pub nodes: Vec<Node>,  // Nodes
     pub edges: Vec<Edge>,  // Edges
-    last_node_id: usize,   // Last used node ID
+    pub last_node_id: usize,   // Last used node ID
 }
 
 impl Graph {
