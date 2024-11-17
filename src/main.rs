@@ -2,47 +2,67 @@
 
 mod parser;
 mod lexer;  
-mod to_xml;
 mod common;
+mod to_xml;
 mod layout;
-mod read_input;
+// mod read_input;
 
+use layout::{assign_bend_points::assign_bend_points, crossing_minimization::reduce_crossings, node_positioning::assign_xy_to_nodes, solve_layer_assignment::solve_layer_assignment};
+// use common::graph;
+// use layout::solve_layer_assignment;
+use to_xml::generate_bpmn;
 use lexer::Lexer;
 use parser::Parser;
 use common::bpmn_event::BpmnEvent;
-use crate::to_xml::generate_bpmn;
-use layout::crossing_minimization::reduce_crossings;
-use layout::node_positioning::assign_xy_to_nodes;
-use layout::assign_bend_points::assign_bend_points;
-use layout::solve_layer_assignment::solve_layer_assignment;
-use crate::read_input::read_lines;
-
-use std::env;
 
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+//     let input = r#"
+// = Pool 1
+// == Lane 1
+// # Start Event 
+// G ->jump
+// - Random Task
+// == Lane 2
+// # Start Event2
+// G <-jump
+// - Activity Task
+//     "#;
 
-    // Use "input.txt" if no argument is provided
-    let input_data = if args.len() < 2 {
-        "input.txt".to_string()
-    } else {
-        args[1].clone()
-    };
 
-    // Try to read the lines from the input file or exit if there's an error
-    let input = match read_lines(&input_data) {
-        Ok(lines) => lines,
-        Err(e) => {
-            eprintln!("Error reading file {}: {}", input_data, e);
-            std::process::exit(1);
-        }
-    };
+
+    let input = r#"
+# Start Event
+X ->above"Go Here" ->below"No, here!" 
+
+above: 
+- Above
+X ->above2"Go Here" ->below2"No, here!" 
+
+above2:
+- Above2
+J endjoin2
+
+below2:
+- Below2
+J endjoin2
+
+<-endjoin2
+J endjoin 
+
+below: 
+- And beyond
+J endjoin 
+
+<-endjoin
+. Finish
+    "#;
 
     run_parser(&input);
 }
 
 pub fn run_parser(input: &str) {
+
     // Initialize the lexer with the input
     let lexer = Lexer::new(input);
 
@@ -53,39 +73,21 @@ pub fn run_parser(input: &str) {
     match parser.parse() {
         Ok(mut graph) => {
             println!("Parsed BPMN Graph:");
-            
             let layers = solve_layer_assignment(&graph);
-
-            // println!("\nLayer assignment after back-edge elimination:");
-            // for (node_id, layer) in &layers {
-            //     println!("Node {}: Layer {}", node_id, layer);
-            // }
-
-            // Ristumiste minimeerimine
             let new_layers = reduce_crossings(&mut graph, &layers);
-
-            // X-Y määramine
             assign_xy_to_nodes(&mut graph, &new_layers);
-
-            // println!("\nNode positions after X-Y assignment:");
-            // for node in &graph.nodes {
-            //     println!("Node {}: x = {:?}, y = {:?}", node.id, node.x, node.y);
-            // }
-
-            // Servade painutamine
             assign_bend_points(&mut graph);
 
-            
 
             for node in &graph.nodes {
                 if let Some(event) = &node.event {
                     match event {
-                        BpmnEvent::Start(label) => println!("  Start Event: {} (ID: {})", label, node.id),
-                        BpmnEvent::Middle(label) => println!("  Middle Event: {} (ID: {})", label, node.id),
-                        BpmnEvent::End(label) => println!("  End Event: {} (ID: {})", label, node.id),
-                        BpmnEvent::GatewayExclusive => println!("  GatewayExclusive Event (ID: {})", node.id),
-                        BpmnEvent::ActivityTask(label) => println!("  ActivityTask: {} (ID: {})", label, node.id),
-                        BpmnEvent::GatewayJoin(label) => println!("  GatewayJoin Event: {} (ID: {})", label, node.id),
+                        BpmnEvent::Start(label) => println!("  Start Event: {} (ID: {}) Pool: {:?}; Lane: {:?}", label, node.id, node.pool.as_deref().unwrap_or("None"), node.lane.as_deref().unwrap_or("None")),
+                        BpmnEvent::Middle(label) => println!("  Middle Event: {} (ID: {}) Pool: {:?}; Lane: {:?}", label, node.id, node.pool.as_deref().unwrap_or("None"), node.lane.as_deref().unwrap_or("None")),
+                        BpmnEvent::End(label) => println!("  End Event: {} (ID: {}) Pool: {:?}; Lane: {:?}", label, node.id, node.pool.as_deref().unwrap_or("None"), node.lane.as_deref().unwrap_or("None")),
+                        BpmnEvent::GatewayExclusive => println!("  GatewayExclusive Event (ID: {}) Pool: {:?}; Lane: {:?}", node.id, node.pool.as_deref().unwrap_or("None"), node.lane.as_deref().unwrap_or("None")),
+                        BpmnEvent::ActivityTask(label) => println!("  ActivityTask: {} (ID: {}) Pool: {:?}; Lane: {:?}", label, node.id, node.pool.as_deref().unwrap_or("None"), node.lane.as_deref().unwrap_or("None")),
+                        BpmnEvent::GatewayJoin(label) => println!("  GatewayJoin Event: {} (ID: {}) Pool: {:?}; Lane: {:?}", label, node.id, node.pool.as_deref().unwrap_or("None"), node.lane.as_deref().unwrap_or("None")),
                     }
                 } else {
                     println!("  No Event (ID: {})", node.id);
@@ -100,7 +102,8 @@ pub fn run_parser(input: &str) {
                     println!("  From Node {} to Node {}", edge.from, edge.to);
                 }
             }
-            generate_bpmn(&graph);
+
+            let bpmn = generate_bpmn(&graph);
         },
         Err(e) => {
             eprintln!("Error parsing input: {}", e);
