@@ -1,24 +1,24 @@
 // src/main.rs
 
-mod parser;
-mod lexer;  
-mod to_xml;
 mod common;
 mod layout;
+mod lexer;
+mod parser;
 mod read_input;
+mod to_xml;
 
-use lexer::Lexer;
-use parser::Parser;
-use common::bpmn_event::BpmnEvent;
+use crate::read_input::read_lines;
 use crate::to_xml::generate_bpmn;
+use common::bpmn_event::BpmnEvent;
+use layout::assign_bend_points::assign_bend_points;
 use layout::crossing_minimization::reduce_crossings;
 use layout::node_positioning::assign_xy_to_nodes;
-use layout::assign_bend_points::assign_bend_points;
 use layout::solve_layer_assignment::solve_layer_assignment;
-use crate::read_input::read_lines;
+use lexer::Lexer;
+use parser::Parser;
 
 use std::env;
-
+use std::process::Command;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -30,6 +30,18 @@ fn main() {
         args[1].clone()
     };
 
+    let output_data = if args.len() < 3 {
+        "".to_string()
+    } else {
+        args[2].clone()
+    };
+
+    // Check if the output format is valid
+    if output_data != "pdf" && output_data != "svg" && output_data != "png" && output_data != "" {
+        eprintln!("Error: Output format must be pdf, svg, png or left blank for xml");
+        std::process::exit(1);
+    }
+
     // Try to read the lines from the input file or exit if there's an error
     let input = match read_lines(&input_data) {
         Ok(lines) => lines,
@@ -39,10 +51,19 @@ fn main() {
         }
     };
 
-    run_parser(&input);
+    let bpmn = run_parser(&input);
+
+    to_xml::export_to_xml(&bpmn);
+
+    if !output_data.is_empty() {
+        match convert_bpmn_to_image(output_data) {
+            Ok(_) => println!("Successfully converted BPMN to image"),
+            Err(e) => eprintln!("{}", e),
+        }
+    }
 }
 
-pub fn run_parser(input: &str) {
+pub fn run_parser(input: &str) -> String {
     // Initialize the lexer with the input
     let lexer = Lexer::new(input);
 
@@ -53,7 +74,7 @@ pub fn run_parser(input: &str) {
     match parser.parse() {
         Ok(mut graph) => {
             println!("Parsed BPMN Graph:");
-            
+
             let layers = solve_layer_assignment(&graph);
 
             // println!("\nLayer assignment after back-edge elimination:");
@@ -75,23 +96,33 @@ pub fn run_parser(input: &str) {
             // Servade painutamine
             assign_bend_points(&mut graph);
 
-            
-
             for node in &graph.nodes {
                 if let Some(event) = &node.event {
                     match event {
-                        BpmnEvent::Start(label) => println!("  Start Event: {} (ID: {})", label, node.id),
-                        BpmnEvent::Middle(label) => println!("  Middle Event: {} (ID: {})", label, node.id),
-                        BpmnEvent::End(label) => println!("  End Event: {} (ID: {})", label, node.id),
-                        BpmnEvent::GatewayExclusive => println!("  GatewayExclusive Event (ID: {})", node.id),
-                        BpmnEvent::ActivityTask(label) => println!("  ActivityTask: {} (ID: {})", label, node.id),
-                        BpmnEvent::GatewayJoin(label) => println!("  GatewayJoin Event: {} (ID: {})", label, node.id),
+                        BpmnEvent::Start(label) => {
+                            println!("  Start Event: {} (ID: {})", label, node.id)
+                        }
+                        BpmnEvent::Middle(label) => {
+                            println!("  Middle Event: {} (ID: {})", label, node.id)
+                        }
+                        BpmnEvent::End(label) => {
+                            println!("  End Event: {} (ID: {})", label, node.id)
+                        }
+                        BpmnEvent::GatewayExclusive => {
+                            println!("  GatewayExclusive Event (ID: {})", node.id)
+                        }
+                        BpmnEvent::ActivityTask(label) => {
+                            println!("  ActivityTask: {} (ID: {})", label, node.id)
+                        }
+                        BpmnEvent::GatewayJoin(label) => {
+                            println!("  GatewayJoin Event: {} (ID: {})", label, node.id)
+                        }
                     }
                 } else {
                     println!("  No Event (ID: {})", node.id);
                 }
             }
-    
+
             println!("Edges:");
             for edge in &graph.edges {
                 if let Some(text) = &edge.text {
@@ -100,11 +131,30 @@ pub fn run_parser(input: &str) {
                     println!("  From Node {} to Node {}", edge.from, edge.to);
                 }
             }
-            generate_bpmn(&graph);
-        },
+            return generate_bpmn(&graph);
+        }
         Err(e) => {
             eprintln!("Error parsing input: {}", e);
-        },
+            e
+        }
+    }
+}
 
+fn convert_bpmn_to_image(output_type: String) -> Result<(), String> {
+    let args = format!("generated_bpmn.bpmn:{}", output_type);
+
+    let status = Command::new("bpmn-to-image").arg(args).output();
+
+    match status {
+        Ok(output) => {
+            if !output.status.success() {
+                return Err(format!(
+                    "Error: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                ));
+            }
+            Ok(())
+        }
+        Err(e) => Err(format!("Failed to execute command: {}", e)),
     }
 }

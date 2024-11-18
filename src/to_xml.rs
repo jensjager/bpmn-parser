@@ -1,7 +1,7 @@
 // use crate::common::edge::Edge;
+use crate::common::bpmn_event::{self, BpmnEvent};
 use crate::common::graph::Graph;
 use crate::common::node::Node;
-use crate::common::bpmn_event::{self, BpmnEvent};
 use std::fs::File;
 use std::io::Write;
 
@@ -54,7 +54,10 @@ exporterVersion="5.17.0">
     <bpmn:outgoing>Flow_{}</bpmn:outgoing>
   </bpmn:task>
 "#,
-                        node.id, label, node.id - 1, node.id
+                        node.id,
+                        label,
+                        node.id - 1,
+                        node.id
                     ));
                 }
                 BpmnEvent::End(label) => {
@@ -63,7 +66,9 @@ exporterVersion="5.17.0">
     <bpmn:incoming>Flow_{}</bpmn:incoming>
   </bpmn:endEvent>
 "#,
-                        node.id, label, node.id - 1
+                        node.id,
+                        label,
+                        node.id - 1
                     ));
                 }
                 BpmnEvent::GatewayExclusive => {
@@ -73,7 +78,9 @@ exporterVersion="5.17.0">
     <bpmn:outgoing>Flow_{}</bpmn:outgoing>
   </bpmn:exclusiveGateway>
 "#,
-                        node.id, node.id - 1, node.id
+                        node.id,
+                        node.id - 1,
+                        node.id
                     ));
                 }
                 BpmnEvent::GatewayJoin(label) => {
@@ -83,7 +90,10 @@ exporterVersion="5.17.0">
     <bpmn:outgoing>Flow_{}</bpmn:outgoing>
   </bpmn:parallelGateway>
 "#,
-                        node.id, label, node.id - 1, node.id
+                        node.id,
+                        label,
+                        node.id - 1,
+                        node.id
                     ));
                 }
             }
@@ -148,8 +158,6 @@ exporterVersion="5.17.0">
         })
         .collect();
 
-
-
     // Add BPMN shapes for nodes using calculated positions
     for (i, node) in graph.nodes.iter().enumerate() {
         let x = node.x.unwrap_or(0.0);
@@ -181,24 +189,18 @@ exporterVersion="5.17.0">
 
         let (edge_from_x, edge_from_y) = (
             from_x + (from_width as f64), // Võtame alguspunkti X-koordinaadi, nihutades seda poole laiuse võrra
-            from_y + (from_height as f64) / 2.0 // Võtame keskjoone
+            from_y + (from_height as f64) / 2.0, // Võtame keskjoone
         );
 
         let (edge_to_x, edge_to_y) = (
             to_x, // Võtame lõpp-punkti X-koordinaadi, nihutades seda poole laiuse võrra
-            to_y + (to_height as f64) / 2.0 // Võtame keskjoone
+            to_y + (to_height as f64) / 2.0, // Võtame keskjoone
         );
-
 
         bpmn.push_str(&format!(
             r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">
   <di:waypoint x="{:.2}" y="{:.2}" />"#,
-            edge.from,
-            edge.to,
-            edge.from,
-            edge.to,
-            edge_from_x,
-            edge_from_y,
+            edge.from, edge.to, edge.from, edge.to, edge_from_x, edge_from_y,
         ));
 
         // Bend points
@@ -227,6 +229,10 @@ exporterVersion="5.17.0">
 "#,
     );
 
+    bpmn
+}
+
+pub fn export_to_xml(bpmn: &String) {
     // Записываем BPMN в файл (опционально)
     let file_path = "generated_bpmn.bpmn";
     let mut file = File::create(file_path).expect("Unable to create file");
@@ -234,8 +240,6 @@ exporterVersion="5.17.0">
         .expect("Unable to write data");
 
     println!("BPMN file generated at: {}", file_path);
-
-    bpmn
 }
 
 fn get_node_bpmn_id(node: &Node) -> String {
@@ -257,7 +261,7 @@ pub(crate) fn get_node_size(node: &Node) -> (usize, usize) {
         bpmn_event::get_node_size(event)
     } else {
         (100, 80) // Default size
-    } 
+    }
 }
 
 #[cfg(test)]
@@ -266,25 +270,23 @@ mod tests {
     use crate::common::bpmn_event::BpmnEvent;
     use crate::common::edge::Edge;
     use crate::common::graph::Graph;
-    use crate::layout::solve_layer_assignment::solve_layer_assignment;
+    use crate::layout::assign_bend_points::assign_bend_points;
     use crate::layout::crossing_minimization::reduce_crossings;
     use crate::layout::node_positioning::assign_xy_to_nodes;
-    use crate::layout::assign_bend_points::assign_bend_points;
-
+    use crate::layout::solve_layer_assignment::solve_layer_assignment;
 
     fn perform_layout(graph: &mut Graph) {
         // Assign layers
         let layers = solve_layer_assignment(graph);
         // Reduce crossings
         let new_layers = reduce_crossings(graph, &layers);
-    
+
         // Assign positions to nodes using the imported function
         assign_xy_to_nodes(graph, &new_layers);
-    
+
         // Assign bend points to edges using the imported function
         assign_bend_points(graph);
     }
-    
 
     #[test]
     fn test_generate_bpmn_with_multiple_middle_events() {
