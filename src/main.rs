@@ -5,8 +5,8 @@ mod layout;
 mod lexer;
 mod parser;
 mod read_input;
+mod test;
 mod to_xml;
-
 use crate::read_input::read_lines;
 use crate::to_xml::generate_bpmn;
 use common::bpmn_event::BpmnEvent;
@@ -16,6 +16,8 @@ use layout::node_positioning::assign_xy_to_nodes;
 use layout::solve_layer_assignment::solve_layer_assignment;
 use lexer::Lexer;
 use parser::Parser;
+#[cfg(test)]
+use test::use_cases_tests;
 
 use std::env;
 use std::process::Command;
