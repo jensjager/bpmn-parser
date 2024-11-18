@@ -20,9 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run tests
-        run: cargo test
-
       - name: Setup CBC (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -41,10 +38,14 @@ jobs:
         run: |
           echo 'extern crate cbc_src;' >> src/main.rs
 
+      - name: Run tests
+        run: |
+          export RUSTFLAGS="-C link-arg=-lstdc++"
+          cargo test
+
       - name: Release (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          export RUSTFLAGS="-C link-arg=-lstdc++"
           cargo build --release
 
       - name: Upload release
