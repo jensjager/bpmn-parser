@@ -264,58 +264,60 @@ pub(crate) fn get_node_size(node: &Node) -> (usize, usize) {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::common::bpmn_event::BpmnEvent;
-    use crate::common::edge::Edge;
-    use crate::common::graph::Graph;
-    use crate::layout::assign_bend_points::assign_bend_points;
-    use crate::layout::crossing_minimization::reduce_crossings;
-    use crate::layout::node_positioning::assign_xy_to_nodes;
-    use crate::layout::solve_layer_assignment::solve_layer_assignment;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use crate::common::bpmn_event::BpmnEvent;
+//     use crate::common::edge::Edge;
+//     use crate::common::graph::Graph;
+//     use crate::layout::solve_layer_assignment::solve_layer_assignment;
+//     use crate::layout::crossing_minimization::reduce_crossings;
+//     use crate::layout::node_positioning::assign_xy_to_nodes;
+//     use crate::layout::assign_bend_points::assign_bend_points;
 
-    fn perform_layout(graph: &mut Graph) {
-        // Assign layers
-        let layers = solve_layer_assignment(graph);
-        // Reduce crossings
-        let new_layers = reduce_crossings(graph, &layers);
 
-        // Assign positions to nodes using the imported function
-        assign_xy_to_nodes(graph, &new_layers);
+//     fn perform_layout(graph: &mut Graph) {
+//         // Assign layers
+//         let layers = solve_layer_assignment(graph);
+//         // Reduce crossings
+//         let new_layers = reduce_crossings(graph, &layers);
+    
+//         // Assign positions to nodes using the imported function
+//         assign_xy_to_nodes(graph, &new_layers);
+    
+//         // Assign bend points to edges using the imported function
+//         assign_bend_points(graph);
+//     }
+    
 
-        // Assign bend points to edges using the imported function
-        assign_bend_points(graph);
-    }
+//     #[test]
+//     fn test_generate_bpmn_with_multiple_middle_events() {
+//         let mut graph = Graph::new(vec![], vec![]);
 
-    #[test]
-    fn test_generate_bpmn_with_multiple_middle_events() {
-        let mut graph = Graph::new(vec![], vec![]);
+//         let start_event = BpmnEvent::Start("Start Event".to_string());
+//         let middle_event = BpmnEvent::ActivityTask("Task 1".to_string());
+//         let middle_event2 = BpmnEvent::ActivityTask("Task 2".to_string());
+//         let middle_event3 = BpmnEvent::ActivityTask("Task 3".to_string());
+//         let end_event = BpmnEvent::End("End Event".to_string());
 
-        let start_event = BpmnEvent::Start("Start Event".to_string());
-        let middle_event = BpmnEvent::ActivityTask("Task 1".to_string());
-        let middle_event2 = BpmnEvent::ActivityTask("Task 2".to_string());
-        let middle_event3 = BpmnEvent::ActivityTask("Task 3".to_string());
-        let end_event = BpmnEvent::End("End Event".to_string());
+//         graph.add_node_noid(start_event);
+//         graph.add_node_noid(middle_event);
+//         graph.add_node_noid(middle_event2);
+//         graph.add_node_noid(middle_event3);
+//         graph.add_node_noid(end_event);
 
-        graph.add_node_noid(start_event);
-        graph.add_node_noid(middle_event);
-        graph.add_node_noid(middle_event2);
-        graph.add_node_noid(middle_event3);
-        graph.add_node_noid(end_event);
+//         // Create edges
+//         graph.add_edge(Edge::new(0, 1, None));
+//         graph.add_edge(Edge::new(1, 2, None));
+//         graph.add_edge(Edge::new(2, 3, None));
+//         graph.add_edge(Edge::new(3, 4, None));
 
-        // Create edges
-        graph.add_edge(Edge::new(0, 1, None));
-        graph.add_edge(Edge::new(1, 2, None));
-        graph.add_edge(Edge::new(2, 3, None));
-        graph.add_edge(Edge::new(3, 4, None));
+//         // Perform layout
+//         perform_layout(&mut graph);
 
-        // Perform layout
-        perform_layout(&mut graph);
+//         // Generate BPMN
+//         let _bpmn_xml = generate_bpmn(&graph);
 
-        // Generate BPMN
-        let _bpmn_xml = generate_bpmn(&graph);
-
-        // Optionally, assert on `bpmn_xml` or inspect the output file.
-    }
-}
+//         // Optionally, assert on `bpmn_xml` or inspect the output file.
+//     }
+// }

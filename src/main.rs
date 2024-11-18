@@ -76,24 +76,8 @@ pub fn run_parser(input: &str) -> String {
             println!("Parsed BPMN Graph:");
 
             let layers = solve_layer_assignment(&graph);
-
-            // println!("\nLayer assignment after back-edge elimination:");
-            // for (node_id, layer) in &layers {
-            //     println!("Node {}: Layer {}", node_id, layer);
-            // }
-
-            // Ristumiste minimeerimine
             let new_layers = reduce_crossings(&mut graph, &layers);
-
-            // X-Y määramine
             assign_xy_to_nodes(&mut graph, &new_layers);
-
-            // println!("\nNode positions after X-Y assignment:");
-            // for node in &graph.nodes {
-            //     println!("Node {}: x = {:?}, y = {:?}", node.id, node.x, node.y);
-            // }
-
-            // Servade painutamine
             assign_bend_points(&mut graph);
 
             for node in &graph.nodes {
