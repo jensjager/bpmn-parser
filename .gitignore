@@ -3,4 +3,4 @@ generated_bpmn.bpmn
 .idea/*
 Cargo.lock
 input.txt
-genereated_bpmn*
+generated_bpmn*
