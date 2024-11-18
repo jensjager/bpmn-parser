@@ -110,7 +110,7 @@ G <-jump
 
 
 # Dependencies
-To convert BPMN diagrams to images, you can use the `bpmn-to-image` tool. This tool is available on GitHub and can be integrated into your project as follows:
+To convert BPMN diagrams to images, you need to install the `bpmn-to-image` tool.
 
 ### Installation
 
