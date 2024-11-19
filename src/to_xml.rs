@@ -1,7 +1,7 @@
 // use crate::common::edge::Edge;
+use crate::common::bpmn_event::{self, BpmnEvent};
 use crate::common::graph::Graph;
 use crate::common::node::Node;
-use crate::common::bpmn_event::{self, BpmnEvent};
 use std::fs::File;
 use std::io::Write;
 
@@ -54,7 +54,10 @@ exporterVersion="5.17.0">
     <bpmn:outgoing>Flow_{}</bpmn:outgoing>
   </bpmn:task>
 "#,
-                        node.id, label, node.id - 1, node.id
+                        node.id,
+                        label,
+                        node.id - 1,
+                        node.id
                     ));
                 }
                 BpmnEvent::End(label) => {
@@ -63,7 +66,9 @@ exporterVersion="5.17.0">
     <bpmn:incoming>Flow_{}</bpmn:incoming>
   </bpmn:endEvent>
 "#,
-                        node.id, label, node.id - 1
+                        node.id,
+                        label,
+                        node.id - 1
                     ));
                 }
                 BpmnEvent::GatewayExclusive => {
@@ -73,7 +78,9 @@ exporterVersion="5.17.0">
     <bpmn:outgoing>Flow_{}</bpmn:outgoing>
   </bpmn:exclusiveGateway>
 "#,
-                        node.id, node.id - 1, node.id
+                        node.id,
+                        node.id - 1,
+                        node.id
                     ));
                 }
                 BpmnEvent::GatewayJoin(label) => {
@@ -83,7 +90,10 @@ exporterVersion="5.17.0">
     <bpmn:outgoing>Flow_{}</bpmn:outgoing>
   </bpmn:parallelGateway>
 "#,
-                        node.id, label, node.id - 1, node.id
+                        node.id,
+                        label,
+                        node.id - 1,
+                        node.id
                     ));
                 }
             }
@@ -148,12 +158,10 @@ exporterVersion="5.17.0">
         })
         .collect();
 
-
-
     // Add BPMN shapes for nodes using calculated positions
     for (i, node) in graph.nodes.iter().enumerate() {
         let x = node.x.unwrap_or(0.0);
-        let y = node.y.unwrap_or(0.0);
+        let y = node.y.unwrap_or(0.0) + node.y_offset.unwrap_or(0.0);
         let (width, height) = node_sizes[i];
 
         let bpmn_element_id = get_node_bpmn_id(node);
@@ -170,55 +178,25 @@ exporterVersion="5.17.0">
 
     // Add BPMN edges for sequence flows with adjusted waypoints
     for edge in &graph.edges {
-        let from_node = graph.nodes.iter().find(|n| n.id == edge.from).unwrap();
-        let to_node = graph.nodes.iter().find(|n| n.id == edge.to).unwrap();
-
-        let (from_x, from_y) = (from_node.x.unwrap_or(0.0), from_node.y.unwrap_or(0.0));
-        let (to_x, to_y) = (to_node.x.unwrap_or(0.0), to_node.y.unwrap_or(0.0));
-
-        let (from_width, from_height) = get_node_size(from_node);
-        let (_to_width, to_height) = get_node_size(to_node);
-
-        let (edge_from_x, edge_from_y) = (
-            from_x + (from_width as f64), // Võtame alguspunkti X-koordinaadi, nihutades seda poole laiuse võrra
-            from_y + (from_height as f64) / 2.0 // Võtame keskjoone
-        );
-
-        let (edge_to_x, edge_to_y) = (
-            to_x, // Võtame lõpp-punkti X-koordinaadi, nihutades seda poole laiuse võrra
-            to_y + (to_height as f64) / 2.0 // Võtame keskjoone
-        );
-
 
         bpmn.push_str(&format!(
-            r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">
-  <di:waypoint x="{:.2}" y="{:.2}" />"#,
-            edge.from,
-            edge.to,
-            edge.from,
-            edge.to,
-            edge_from_x,
-            edge_from_y,
+            r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">"#,
+            edge.from, edge.to, edge.from, edge.to,
         ));
 
-        // Bend points
-        for &(x, y) in &edge.bend_points {
-            bpmn.push_str(&format!(
-                r#"
-  <di:waypoint x="{:.2}" y="{:.2}" />"#,
-                x, y
-            ));
+        // Kasutame `adjusted_points`-i iga waypoini jaoks
+        if let Some(points) = &edge.adjusted_points {
+            for &(x, y) in points {
+                bpmn.push_str(&format!(
+                    r#"<di:waypoint x="{:.2}" y="{:.2}" />"#,
+                    x, y
+                ));
+            }
         }
 
-        // End waypoint
-        bpmn.push_str(&format!(
-            r#"
-  <di:waypoint x="{:.2}" y="{:.2}" />
-</bpmndi:BPMNEdge>
-"#,
-            edge_to_x, edge_to_y
-        ));
+        bpmn.push_str("</bpmndi:BPMNEdge>");
     }
+
 
     bpmn.push_str(
         r#"    </bpmndi:BPMNPlane>
@@ -227,6 +205,10 @@ exporterVersion="5.17.0">
 "#,
     );
 
+    bpmn
+}
+
+pub fn export_to_xml(bpmn: &String) {
     // Записываем BPMN в файл (опционально)
     let file_path = "generated_bpmn.bpmn";
     let mut file = File::create(file_path).expect("Unable to create file");
@@ -234,8 +216,6 @@ exporterVersion="5.17.0">
         .expect("Unable to write data");
 
     println!("BPMN file generated at: {}", file_path);
-
-    bpmn
 }
 
 fn get_node_bpmn_id(node: &Node) -> String {
@@ -257,7 +237,7 @@ pub(crate) fn get_node_size(node: &Node) -> (usize, usize) {
         bpmn_event::get_node_size(event)
     } else {
         (100, 80) // Default size
-    } 
+    }
 }
 
 // #[cfg(test)]

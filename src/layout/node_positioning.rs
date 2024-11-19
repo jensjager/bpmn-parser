@@ -1,9 +1,7 @@
 use crate::common::{bpmn_event, graph::Graph};
 use std::collections::HashMap;
-use crate::common::bpmn_event::BpmnEvent;
 
 // Määrame sõlmede suurused ja vahed
-const NODE_HEIGHT: f64 = 50.0;        // Sõlme kõrgus
 const MIN_NODE_SPACING: f64 = 20.0;   // Minimaalne vertikaalne vahe sõlmede vahel
 const NODE_WIDTH: f64 = 100.0;        // Sõlme laius
 const LAYER_WIDTH: f64 = NODE_WIDTH + 50.0; // X-koordinaatide vahe (kihiti)
@@ -40,12 +38,12 @@ pub fn assign_xy_to_nodes(graph: &mut Graph, layers: &Vec<(usize, i32)>) {
             } else {
                 0.0
             };
-            let y = y_position + y_offset;
+            let y = y_position;
             y_position += node_spacing;
 
             if let Some(node) = graph.nodes.iter_mut().find(|n| n.id == *node_id) {
-                println!("Määran sõlmele {} koordinaadid: x = {}, y = {}", node_id, x, y);
-                node.set_position(x, y);
+                println!("Määran sõlmele {} koordinaadid: x = {}, y = {}, y_offset = {}", node_id, x, y, y_offset);
+                node.set_position(x, y, y_offset);
             } else {
                 println!("Sõlme {} ei leitud graafis", node_id);
             }
