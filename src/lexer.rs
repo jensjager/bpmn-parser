@@ -25,6 +25,7 @@ pub struct Lexer<'a> {
     position: usize,                // Current position in the input
     current_char: Option<char>,     // Current character being examined
     line: usize,                    // Current line number
+    column: usize,                  // Current column number
     seen_start: bool,               // State flag for distinguishing event start/middle
 }
 
@@ -36,6 +37,7 @@ impl<'a> Lexer<'a> {
             position: 0,
             current_char: None,
             line: 1,
+            column: 0,
             seen_start: false,    // Initially, no start event has been seen
         };
         lexer.advance(); // Load the first character
@@ -46,6 +48,9 @@ impl<'a> Lexer<'a> {
     fn advance(&mut self) {
         if self.current_char == Some('\n') {
             self.line += 1;          // Move to the next line
+            self.column = 1;         // Reset the column count
+        } else {
+            self.column += 1;        // Move to the next column
         }
 
         if self.position < self.input.len() {
@@ -70,7 +75,10 @@ impl<'a> Lexer<'a> {
                     self.advance(); // Skip the newline
                     self.next_token()
                 } else {
-                    Some(Token::Error(format!("Single '/' is not allowed at line {}; did you mean '//' for comments?", self.line)))
+                    let error = self.highlight_error();
+                    Some(Token::Error(format!(
+                        "Single '/' is not allowed at line {}; did you mean '//' for comments?\n{}\n"
+                        , self.line, error)))
                 }
             },
             Some('=') => {
@@ -170,7 +178,7 @@ impl<'a> Lexer<'a> {
         let mut text = String::new();
 
         while let Some(c) = self.current_char {
-            if c != '\n' && c != '-' && c != '.' && c != '"' {
+            if c != '\n' && c != '-' && c != '.' && c != '#' && c != '"' {
                 text.push(c);
                 self.advance();
             } else {
@@ -190,5 +198,16 @@ impl<'a> Lexer<'a> {
             String::new()
         }
     }
+
+    fn highlight_error(&mut self) -> String {
+        // Split input into lines
+        let lines: Vec<&str> = self.input.split('\n').collect();
     
+        let current_line = lines[self.line - 1];
+    
+        // Create the error highlight
+        let highlight = " ".repeat(self.column - 2) + "^";
+    
+        format!("{}\n{}", current_line, highlight)
+    }
 }
