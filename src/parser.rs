@@ -82,7 +82,7 @@ impl<'a> Parser<'a> {
                 let events = branching.label_map.get(&label).expect("Label not found in label_map");
                 let first_event = events.get(0).expect("No events found for label");
                 let node_id = graph.add_node(first_event.0.clone(), first_event.1.clone(), first_event.2.clone(), first_event.3.clone());
-                let edge = Edge::new(gateway_from_id, node_id, text.clone(), None, None);
+                let edge = Edge::new(gateway_from_id, node_id, text.clone());
                 graph.add_edge(edge);
                 context.last_node_id = Some(node_id);
                 for event in &events[1..] {
@@ -95,7 +95,7 @@ impl<'a> Parser<'a> {
                             continue;
                         }
                     }
-                    let edge = Edge::new(context.last_node_id.unwrap(), node_id, None, None, None);
+                    let edge = Edge::new(context.last_node_id.unwrap(), node_id, None);
                     graph.add_edge(edge);
                     context.last_node_id = Some(node_id);
                 }
@@ -109,7 +109,7 @@ impl<'a> Parser<'a> {
                         }
                     }).collect();
                 for end_join_id in end_join_ids {
-                    let edge = Edge::new(context.last_node_id.unwrap(), end_join_id, end_label.unwrap().1.clone(),None, None);
+                    let edge = Edge::new(context.last_node_id.unwrap(), end_join_id, end_label.unwrap().1.clone());
                     graph.add_edge(edge);
                 }
             }
@@ -119,7 +119,7 @@ impl<'a> Parser<'a> {
             for (label, text) in labels {
                 if let Some(to_node_ids) = go_to_map.get(&label) {
                     for to_node_id in to_node_ids {
-                        let edge = Edge::new(from_node_id, *to_node_id, text.clone(), None, None);
+                        let edge = Edge::new(from_node_id, *to_node_id, text.clone());
                         graph.add_edge(edge);
                     }
                 }
@@ -151,7 +151,7 @@ impl<'a> Parser<'a> {
         if let Token::Branch(_, _) = self.current_token {
             // If there is no last node ID, this is the first node in the graph
             if context.last_node_id != None {
-                let edge = Edge::new(context.last_node_id.unwrap(), node_id, None, context.current_pool.clone(), context.current_lane.clone());
+                let edge = Edge::new(context.last_node_id.unwrap(), node_id, None);
                 graph.add_edge(edge);
             }
             // Store the node_id and corresponding branches to a map
@@ -246,7 +246,7 @@ impl<'a> Parser<'a> {
     fn parse_common(&mut self, graph: &mut Graph, context: &mut ParseContext, event: BpmnEvent) -> Result<(), String> {
         let node_id = graph.add_node_noid(event, context.current_pool.clone(), context.current_lane.clone());
         if let Some(last_node_id) = context.last_node_id {
-            let edge = Edge::new(last_node_id, node_id, None, context.current_pool.clone(), context.current_lane.clone());
+            let edge = Edge::new(last_node_id, node_id, None);
             graph.add_edge(edge);
         }
         context.last_node_id = Some(node_id);
