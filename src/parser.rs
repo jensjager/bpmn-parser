@@ -71,6 +71,7 @@ impl<'a> Parser<'a> {
                 Token::ActivityTask(label) => self.parse_task(&mut graph, &mut context, BpmnEvent::ActivityTask(label.clone()))?,
                 Token::GatewayExclusive => { self.parse_gateway(&mut graph, &mut context, BpmnEvent::GatewayExclusive, &mut branching)?; continue; },
                 Token::Label(label) => self.parse_label(&mut graph, &mut context, &mut branching, &label.clone(), &mut go_from_map, &mut go_to_map)?,
+                Token::Error(message) => return Err(message.clone()),
                 _ => return Err(format!("Unexpected token: {:?}", self.current_token)),
             }
             self.advance();
@@ -202,6 +203,7 @@ impl<'a> Parser<'a> {
                     }
                     continue;
                 },
+                Token::Error(message) => return Err(message.clone()),
                 _ => return Err(format!("Unexpected token in label ({:?}): {:?}", label,self.current_token)),
             }
             self.advance();
