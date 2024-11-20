@@ -15,6 +15,7 @@ pub enum Token {
     Branch(String, String),       // `->` Branch label and text
     JoinLabel(String),            // `<-` for join gateway
     Text(String),                 // Any freeform text
+    Error(String),                // Error message
     Eof,                          // End of file/input
 }
 
@@ -23,6 +24,7 @@ pub struct Lexer<'a> {
     input: &'a str,                 // Input string
     position: usize,                // Current position in the input
     current_char: Option<char>,     // Current character being examined
+    line: usize,                    // Current line number
     seen_start: bool,               // State flag for distinguishing event start/middle
 }
 
@@ -33,6 +35,7 @@ impl<'a> Lexer<'a> {
             input,
             position: 0,
             current_char: None,
+            line: 1,
             seen_start: false,    // Initially, no start event has been seen
         };
         lexer.advance(); // Load the first character
@@ -41,6 +44,10 @@ impl<'a> Lexer<'a> {
 
     // Advance to the next character in the input
     fn advance(&mut self) {
+        if self.current_char == Some('\n') {
+            self.line += 1;          // Move to the next line
+        }
+
         if self.position < self.input.len() {
             self.current_char = Some(self.input.chars().nth(self.position).unwrap());
             self.position += 1;
@@ -54,6 +61,18 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace(); // Skip any unnecessary whitespace
 
         match self.current_char {
+            Some('/') => {
+                self.advance(); // Skip '/'
+                if self.current_char == Some('/') {
+                    while self.current_char != Some('\n') {
+                        self.advance(); // Skip the comment
+                    }
+                    self.advance(); // Skip the newline
+                    self.next_token()
+                } else {
+                    Some(Token::Error(format!("Single '/' is not allowed at line {}; did you mean '//' for comments?", self.line)))
+                }
+            },
             Some('=') => {
                 self.advance(); // Skip '='
                 if self.current_char == Some('=') {
