@@ -24,7 +24,7 @@ pub struct Lexer<'a> {
     input: &'a str,                 // Input string
     position: usize,                // Current position in the input
     current_char: Option<char>,     // Current character being examined
-    line: usize,                    // Current line number
+    pub line: usize,                    // Current line number
     column: usize,                  // Current column number
     seen_start: bool,               // State flag for distinguishing event start/middle
 }
@@ -77,7 +77,7 @@ impl<'a> Lexer<'a> {
                 } else {
                     let error = self.highlight_error();
                     Some(Token::Error(format!(
-                        "Single '/' is not allowed at line {}; did you mean '//' for comments?\n{}\n"
+                        "Syntax error: Single '/' is not allowed at line {}; did you mean '//' for comments?\n{}\n"
                         , self.line, error)))
                 }
             },
@@ -128,7 +128,10 @@ impl<'a> Lexer<'a> {
                     let label: String = self.read_text();
                     Some(Token::JoinLabel(label))
                 } else {
-                    None
+                    let error = self.highlight_error();
+                    Some(Token::Error(format!(
+                        "Syntax error: Expected '-' after '<' at line {}. Did you mean '<-' for a join?\n{}\n",
+                        self.line, error)))
                 }
             },
             Some('X') => {
@@ -199,7 +202,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn highlight_error(&mut self) -> String {
+    pub fn highlight_error(&mut self) -> String {
         // Split input into lines
         let lines: Vec<&str> = self.input.split('\n').collect();
     

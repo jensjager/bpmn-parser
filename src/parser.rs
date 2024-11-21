@@ -146,6 +146,11 @@ impl<'a> Parser<'a> {
     fn parse_gateway(&mut self, graph: &mut Graph, context: &mut ParseContext, event: BpmnEvent, branching: &mut ParseBranching) -> Result<(), String> {
         // Assign a unique node ID to this gateway
         let node_id = graph.add_node_noid(event, context.current_pool.clone(), context.current_lane.clone());
+
+        // Save the current line and error message in case of an error
+        let line = self.lexer.line.clone();
+        let error_message = self.lexer.highlight_error();
+
         self.advance();
         // Check if this gateway is a branching gateway or a join gateway
         if let Token::Branch(_, _) = self.current_token {
@@ -167,8 +172,10 @@ impl<'a> Parser<'a> {
                 branching.gateway_end_map.entry(node_id).or_insert(vec![]).push(label.clone());
                 self.advance();
             }
+        } else if let Token::Error(ref message) = self.current_token {
+            return Err(message.clone());
         } else {
-            return Err(format!("Expected an '->' or '<-' after 'X' token! Current token: {:?}", self.current_token))
+            return Err(format!("Waited for a Branch or a Join after 'X' token at line {:?} \n{}", line, error_message));
         }
         Ok(())
     }
@@ -196,7 +203,6 @@ impl<'a> Parser<'a> {
                     events.push((BpmnEvent::GatewayExclusive, gateway_id, context.current_pool.clone(), context.current_lane.clone()));
 
                     // Store the gateway_id and parse branches without advancing
-                    self.advance();
                     let deferred_parse_gateway = self.deferred_parse_gateway(branching, gateway_id);
                     if deferred_parse_gateway.is_err() {
                         return deferred_parse_gateway;
@@ -219,6 +225,12 @@ impl<'a> Parser<'a> {
 
     /// Parse a gateway inside a branch
     fn deferred_parse_gateway(&mut self, branching: &mut ParseBranching, gateway_id: usize) -> Result<(), String> {
+        // Save the current line and error message in case of an error
+        let line = self.lexer.line.clone();
+        let error_message = self.lexer.highlight_error();
+
+        self.advance();
+        
         // Check if this gateway is a branching gateway or a join gateway
         if let Token::Branch(_, _) = self.current_token {
             // Store the node_id and corresponding branches to a map
@@ -236,8 +248,10 @@ impl<'a> Parser<'a> {
                     .push(join_label.clone());
                 self.advance();
             }
+        } else if let Token::Error(ref message) = self.current_token {
+            return Err(message.clone());
         } else {
-            return Err(format!("Expected an '->' or '<-' after 'X' token! Current token: {:?}", self.current_token))
+            return Err(format!("Waited for a Branch or a Join after 'X' token at line {:?} \n{}", line, error_message));
         }
         Ok(())
     }
@@ -265,6 +279,11 @@ impl<'a> Parser<'a> {
 
     /// Parse a go
     fn parse_go(&mut self, graph: &mut Graph, context: &mut ParseContext, go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>, go_to_map: &mut HashMap<String, Vec<usize>>) -> Result<(), String> {
+
+        // Save the current line and error message in case of an error
+        let line = self.lexer.line.clone();
+        let error_message = self.lexer.highlight_error();
+
         self.advance();
         // Check if this go is a branching go or a join go
         if let Token::Branch(_, _) = self.current_token {
@@ -273,7 +292,11 @@ impl<'a> Parser<'a> {
                 if let Some(last_node_id) = context.last_node_id {
                     go_from_map.entry(last_node_id).or_insert(vec![]).push((label.clone(), if text.is_empty() { None } else { Some(text.clone()) }));
                 } else {
-                    return Err(format!("Expected a node before branch label! Current token: {:?}", self.current_token));
+                    return Err(format!(
+                        "Expected a node before branch label at line {}! \n{}",
+                        self.lexer.line.clone(),
+                        self.lexer.highlight_error()
+                    ));                
                 }
                 self.advance();
             }
@@ -284,8 +307,10 @@ impl<'a> Parser<'a> {
                 go_to_map.entry(label.clone()).or_insert(vec![]).push(next_node_id);
                 self.advance();
             }
+        } else if let Token::Error(ref message) = self.current_token {
+            return Err(message.clone());
         } else {
-            return Err(format!("Expected an '->' or '<-' after 'G' token! Current token: {:?}", self.current_token))
+            return Err(format!("Waited for a Join or a Go after 'G' token at line {:?} \n{}", line, error_message));
         }
         Ok(())
     }
