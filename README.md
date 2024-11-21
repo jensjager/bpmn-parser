@@ -105,7 +105,7 @@ G ->jump
 G <-jump
 # Start Event2
 - Task2
-. End E
+. End Event2
 ```
 
 
