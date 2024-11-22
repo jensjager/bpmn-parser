@@ -37,6 +37,11 @@ impl<'a> Parser<'a> {
         self.current_token = self.lexer.next_token().unwrap_or(Token::Eof);
     }
 
+    /// Peeks at the next token
+    fn peek(&mut self) -> Token {
+        self.lexer.peek_token()
+    }
+
     /// Parses the input and returns a graph
     pub fn parse(&mut self) -> Result<Graph, String> {
         let mut graph = Graph::new(vec![], vec![]);
@@ -58,19 +63,26 @@ impl<'a> Parser<'a> {
         let mut go_from_map: HashMap<usize, Vec<(String, Option<String>)>> = HashMap::new(); // (node id, <(labels, optional texts)>)
         let mut go_to_map: HashMap<String, Vec<usize>> = HashMap::new(); // (label, node ids)
 
+        let mut go_active = false; // Flag to indicate if a go is active (outgoing)
+        let mut inside_label = false; // Flag to indicate if we are inside a label
+
         // Parse the input
         while self.current_token != Token::Eof {
+            if let Err(err) = self.check_go_active_error(go_active) {
+                return Err(err);
+            }
+
             // Match the current token and parse accordingly
             match &self.current_token {
-                Token::Pool(label) => self.parse_pool(&mut context, label),
-                Token::Lane(label) => self.parse_lane(&mut context, label),
-                Token::Go => { self.parse_go(&mut graph, &mut context, &mut go_from_map, &mut go_to_map)?; continue; },
+                Token::Pool(label) => self.parse_pool(&mut context, label, &mut go_active),
+                Token::Lane(label) => self.parse_lane(&mut context, label, &mut go_active),
+                Token::Go => { self.parse_go(&mut graph, &mut context, &mut go_from_map, &mut go_to_map, &mut go_active)?; continue; },
                 Token::EventStart(label) => self.parse_event(&mut graph, &mut context, BpmnEvent::Start(label.clone()))?,
                 Token::EventMiddle(label) => self.parse_event(&mut graph, &mut context, BpmnEvent::Middle(label.clone()))?,
                 Token::EventEnd(label) => self.parse_event(&mut graph, &mut context, BpmnEvent::End(label.clone()))?,
                 Token::ActivityTask(label) => self.parse_task(&mut graph, &mut context, BpmnEvent::ActivityTask(label.clone()))?,
                 Token::GatewayExclusive => { self.parse_gateway(&mut graph, &mut context, BpmnEvent::GatewayExclusive, &mut branching)?; continue; },
-                Token::Label(label) => self.parse_label(&mut graph, &mut context, &mut branching, &label.clone(), &mut go_from_map, &mut go_to_map)?,
+                Token::Label(label) => self.parse_label(&mut graph, &mut context, &mut branching, &label.clone(), &mut go_from_map, &mut go_to_map, &mut go_active)?,
                 Token::Error(message) => return Err(message.clone()),
                 _ => return Err(format!("Unexpected token: {:?}", self.current_token)),
             }
@@ -130,16 +142,18 @@ impl<'a> Parser<'a> {
     }
 
     /// Set the current pool
-    fn parse_pool(&self, context: &mut ParseContext, label: &str) {
+    fn parse_pool(&self, context: &mut ParseContext, label: &str, go_active: &mut bool) {
         context.current_pool = Some(label.to_string());
         context.current_lane = None;
         context.last_node_id = None;
+        *go_active = false;
     }
 
     /// Set the current lane
-    fn parse_lane(&self, context: &mut ParseContext, label: &str) {
+    fn parse_lane(&self, context: &mut ParseContext, label: &str, go_active: &mut bool) {
         context.current_lane = Some(label.to_string());
         context.last_node_id = None;
+        *go_active = false;
     }
 
     /// Parse a gateway
@@ -181,7 +195,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a branch label
-    fn parse_label(&mut self, graph: &mut Graph, context: &mut ParseContext, branching: &mut ParseBranching, label: &str, go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>, go_to_map: &mut HashMap<String, Vec<usize>>) -> Result<(), String>  {
+    fn parse_label(&mut self, graph: &mut Graph, context: &mut ParseContext, branching: &mut ParseBranching, label: &str, go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>, go_to_map: &mut HashMap<String, Vec<usize>>, go_active: &mut bool) -> Result<(), String>  {
         self.advance();
         // Save all events for this label
         let mut events: Vec<(BpmnEvent,usize, Option<String>, Option<String>)> = vec![]; // (event, node_id, pool, lane)
@@ -189,12 +203,20 @@ impl<'a> Parser<'a> {
             let current_token = self.current_token.clone();
             match &current_token {
                 // If the current token is a label, parse it recursively
-                Token::Label(inner_label) => self.parse_label(graph, context, branching, &inner_label.clone(), go_from_map, go_to_map)?,
+                Token::Label(inner_label) => self.parse_label(graph, context, branching, &inner_label.clone(), go_from_map, go_to_map, go_active)?,
                 Token::EventStart(label) => events.push((BpmnEvent::Start(label.clone()),graph.next_node_id(), context.current_pool.clone(), context.current_lane.clone())),
                 Token::EventMiddle(label) => events.push((BpmnEvent::Middle(label.clone()),graph.next_node_id(), context.current_pool.clone(), context.current_lane.clone())),
                 Token::EventEnd(label) => events.push((BpmnEvent::End(label.clone()),graph.next_node_id(), context.current_pool.clone(), context.current_lane.clone())),
                 Token::ActivityTask(label) => events.push((BpmnEvent::ActivityTask(label.clone()),graph.next_node_id(), context.current_pool.clone(), context.current_lane.clone())),
-                Token::Go => { self.parse_go(graph, context, go_from_map, go_to_map)?; continue; },
+                Token::Go => { 
+                    if events.is_empty() && matches!(self.peek(), Token::Branch(_,_)) {
+                        return Err(format!(
+                            "Expected a Join for 'G' token before defining a new node at line {:?}\n{}",
+                            self.lexer.line, self.lexer.highlight_error()
+                        ));
+                    }
+                    self.parse_go(graph, context, go_from_map, go_to_map, go_active)?; 
+                    continue; },
                 Token::GatewayExclusive => {
                     // Assign a unique node ID to this gateway
                     let gateway_id = graph.next_node_id();
@@ -278,7 +300,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a go
-    fn parse_go(&mut self, graph: &mut Graph, context: &mut ParseContext, go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>, go_to_map: &mut HashMap<String, Vec<usize>>) -> Result<(), String> {
+    fn parse_go(&mut self, graph: &mut Graph, context: &mut ParseContext, go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>, go_to_map: &mut HashMap<String, Vec<usize>>, go_active: &mut bool) -> Result<(), String> {
 
         // Save the current line and error message in case of an error
         let line = self.lexer.line.clone();
@@ -287,6 +309,8 @@ impl<'a> Parser<'a> {
         self.advance();
         // Check if this go is a branching go or a join go
         if let Token::Branch(_, _) = self.current_token {
+            *go_active = true;
+
             // Loop through all branches and store the labels and texts
             while let Token::Branch(label, text) = &self.current_token {
                 if let Some(last_node_id) = context.last_node_id {
@@ -301,6 +325,8 @@ impl<'a> Parser<'a> {
                 self.advance();
             }
         } else if let Token::JoinLabel(_) = self.current_token {
+            *go_active = false;
+
             // Loop through all join labels and store the node IDs
             let next_node_id = graph.last_node_id + 1;
             while let Token::JoinLabel(label) = &self.current_token {
@@ -311,6 +337,25 @@ impl<'a> Parser<'a> {
             return Err(message.clone());
         } else {
             return Err(format!("Waited for a Join or a Go after 'G' token at line {:?} \n{}", line, error_message));
+        }
+        Ok(())
+    }
+
+    fn check_go_active_error(&mut self, go_active: bool) -> Result<(), String> {
+        if go_active
+            && matches!(
+                self.current_token,
+                Token::EventStart(_)    | 
+                Token::EventMiddle(_)   | 
+                Token::EventEnd(_)      | 
+                Token::ActivityTask(_)  | 
+                Token::GatewayExclusive
+            )
+        {
+            return Err(format!(
+                "Expected a Join for 'G' token before defining a new node at line {:?}\n{}",
+                self.lexer.line, self.lexer.highlight_error()
+            ));
         }
         Ok(())
     }

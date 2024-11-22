@@ -24,7 +24,7 @@ pub struct Lexer<'a> {
     input: &'a str,                 // Input string
     position: usize,                // Current position in the input
     current_char: Option<char>,     // Current character being examined
-    pub line: usize,                    // Current line number
+    pub line: usize,                // Current line number
     column: usize,                  // Current column number
     seen_start: bool,               // State flag for distinguishing event start/middle
 }
@@ -59,6 +59,25 @@ impl<'a> Lexer<'a> {
         } else {
             self.current_char = None; // End of input
         }
+    }
+
+    // Peek the next token in the input
+    pub fn peek_token(&mut self) -> Token {
+        let saved_position = self.position;
+        let saved_char = self.current_char;
+        let saved_line = self.line;
+        let saved_column = self.column;
+    
+        // Get the next token
+        let token = self.next_token().unwrap_or(Token::Eof);
+    
+        // Restore lexer state
+        self.position = saved_position;
+        self.current_char = saved_char;
+        self.line = saved_line;
+        self.column = saved_column;
+    
+        token
     }
 
     // Get the next token from the input
@@ -202,7 +221,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn highlight_error(&mut self) -> String {
+    pub fn highlight_error(&self) -> String {
         // Split input into lines
         let lines: Vec<&str> = self.input.split('\n').collect();
     
