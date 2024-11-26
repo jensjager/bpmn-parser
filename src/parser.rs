@@ -18,6 +18,7 @@ struct ParseBranching {
 }
 
 pub struct Parser<'a> {
+    graph: Graph,
     lexer: Lexer<'a>,
     current_token: Token,
 }
@@ -27,6 +28,7 @@ impl<'a> Parser<'a> {
     pub fn new(mut lexer: Lexer<'a>) -> Self {
         let current_token = lexer.next_token().unwrap_or(Token::Eof);
         Parser {
+            graph: Graph::new(vec![], vec![]),
             lexer,
             current_token,
         }
@@ -44,8 +46,6 @@ impl<'a> Parser<'a> {
 
     /// Parses the input and returns a graph
     pub fn parse(&mut self) -> Result<Graph, String> {
-        let mut graph = Graph::new(vec![], vec![]);
-
         // Initialize the context and branching structures
         let mut context = ParseContext {
             last_node_id: None,
@@ -78,13 +78,13 @@ impl<'a> Parser<'a> {
             match current_token {
                 Token::Pool(label) => self.parse_pool(&mut context, &label, &mut go_active),
                 Token::Lane(label) => self.parse_lane(&mut context, &label, &mut go_active),
-                Token::Go => { self.parse_go(&mut graph, context.last_node_id, &mut go_from_map, &mut go_to_map, &mut go_active)?; continue; },
-                Token::EventStart(label) => self.parse_common(&mut graph, &mut context, BpmnEvent::Start(label.clone()))?,
-                Token::EventMiddle(label) => self.parse_common(&mut graph, &mut context, BpmnEvent::Middle(label.clone()))?,
-                Token::EventEnd(label) => self.parse_common(&mut graph, &mut context, BpmnEvent::End(label.clone()))?,
-                Token::ActivityTask(label) => self.parse_common(&mut graph, &mut context, BpmnEvent::ActivityTask(label.clone()))?,
-                Token::GatewayExclusive => { self.parse_gateway(&mut graph, &mut context, BpmnEvent::GatewayExclusive, &mut branching)?; continue; },
-                Token::Label(label) => self.parse_label(&mut graph, &mut context, &mut branching, &label.clone(), &mut go_from_map, &mut go_to_map, &mut go_active)?,
+                Token::Go => { self.parse_go(context.last_node_id, &mut go_from_map, &mut go_to_map, &mut go_active)?; continue; },
+                Token::EventStart(label) => self.parse_common( &mut context, BpmnEvent::Start(label.clone()))?,
+                Token::EventMiddle(label) => self.parse_common(&mut context, BpmnEvent::Middle(label.clone()))?,
+                Token::EventEnd(label) => self.parse_common(&mut context, BpmnEvent::End(label.clone()))?,
+                Token::ActivityTask(label) => self.parse_common(&mut context, BpmnEvent::ActivityTask(label.clone()))?,
+                Token::GatewayExclusive => { self.parse_gateway(&mut context, BpmnEvent::GatewayExclusive, &mut branching)?; continue; },
+                Token::Label(label) => self.parse_label(&mut context, &mut branching, &label.clone(), &mut go_from_map, &mut go_to_map, &mut go_active)?,
                 Token::Error(message) => return Err(message.clone()),
                 _ => return Err(format!("Unexpected token: {:?}", self.current_token)),
             }
@@ -95,12 +95,12 @@ impl<'a> Parser<'a> {
             for (label, text) in labels {
                 let events = branching.label_map.get(&label).expect("Label not found in label_map");
                 let first_event = events.get(0).expect("No events found for label");
-                let node_id = graph.add_node(first_event.0.clone(), first_event.1.clone(), first_event.2.clone(), first_event.3.clone());
+                let node_id = self.graph.add_node(first_event.0.clone(), first_event.1.clone(), first_event.2.clone(), first_event.3.clone());
                 let edge = Edge::new(gateway_from_id, node_id, text.clone());
-                graph.add_edge(edge);
+                self.graph.add_edge(edge);
                 context.last_node_id = Some(node_id);
                 for event in &events[1..] {
-                    let node_id = graph.add_node(event.0.clone(), event.1.clone(), event.2.clone(), event.3.clone());
+                    let node_id = self.graph.add_node(event.0.clone(), event.1.clone(), event.2.clone(), event.3.clone());
                     if let BpmnEvent::GatewayExclusive = event.0 {
                         // Check if this gateway is in `gateway_end_map` (indicating a join gateway)
                         if branching.gateway_end_map.contains_key(&node_id) {
@@ -110,7 +110,7 @@ impl<'a> Parser<'a> {
                         }
                     }
                     let edge = Edge::new(context.last_node_id.unwrap(), node_id, None);
-                    graph.add_edge(edge);
+                    self.graph.add_edge(edge);
                     context.last_node_id = Some(node_id);
                 }
                 let end_label = branching.label_end_map.get(&label);
@@ -124,7 +124,7 @@ impl<'a> Parser<'a> {
                     }).collect();
                 for end_join_id in end_join_ids {
                     let edge = Edge::new(context.last_node_id.unwrap(), end_join_id, end_label.unwrap().1.clone());
-                    graph.add_edge(edge);
+                    self.graph.add_edge(edge);
                 }
             }
         }
@@ -134,13 +134,13 @@ impl<'a> Parser<'a> {
                 if let Some(to_node_ids) = go_to_map.get(&label) {
                     for to_node_id in to_node_ids {
                         let edge = Edge::new(from_node_id, *to_node_id, text.clone());
-                        graph.add_edge(edge);
+                        self.graph.add_edge(edge);
                     }
                 }
             }
         }
 
-        Ok(graph)
+        Ok(self.graph.clone())
     }
 
     /// Set the current pool
@@ -163,22 +163,20 @@ impl<'a> Parser<'a> {
     /// Parse a gateway
     fn parse_gateway(
         &mut self, 
-        graph: &mut Graph, 
         context: &mut ParseContext, 
         event: BpmnEvent, 
         branching: &mut ParseBranching
     ) -> Result<(), String> {
         // Assign a unique node ID to this gateway
-        let node_id = graph.add_node_noid(event, context.current_pool.clone(), context.current_lane.clone());
+        let node_id = self.graph.add_node_noid(event, context.current_pool.clone(), context.current_lane.clone());
 
         // Call the common gateway parsing logic
-        return self.parse_gateway_common(graph, context, node_id, branching, false)
+        return self.parse_gateway_common(context, node_id, branching, false)
     }
     
     /// Common logic for parsing gateways (branch or join)
     fn parse_gateway_common(
         &mut self, 
-        graph: &mut Graph, 
         context: &mut ParseContext, 
         node_id: usize, 
         branching: &mut ParseBranching,
@@ -192,7 +190,7 @@ impl<'a> Parser<'a> {
         
         // Handle Branch or Join for the gateway
         match &self.current_token {
-            Token::Branch(_, _) => self.handle_gateway_branching(graph, context, node_id, branching, inside_label)?,
+            Token::Branch(_, _) => self.handle_gateway_branching(context, node_id, branching, inside_label)?,
             Token::JoinLabel(_) => self.handle_gateway_join(context, node_id, branching, inside_label)?,
             Token::Error(ref message) => return Err(message.clone()),
             _ => return Err(format!(
@@ -205,14 +203,13 @@ impl<'a> Parser<'a> {
     // Helper to handle branching
     fn handle_gateway_branching(
         &mut self,
-        graph: &mut Graph,
         context: &mut ParseContext,
         node_id: usize,
         branching: &mut ParseBranching,
         inside_label: bool
     ) -> Result<(), String> {
         if !inside_label {
-            self.connect_nodes(graph, context, node_id);
+            self.connect_nodes(context, node_id);
         }
         while let Token::Branch(label, text) = &self.current_token {
             let branch_text = if text.is_empty() { None } else { Some(text.clone()) };
@@ -251,7 +248,6 @@ impl<'a> Parser<'a> {
     /// Parse a branch label
     fn parse_label(
         &mut self, 
-        graph: &mut Graph, 
         context: &mut ParseContext, 
         branching: &mut ParseBranching, label: &str, 
         go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>, 
@@ -268,27 +264,27 @@ impl<'a> Parser<'a> {
             match &current_token {
                 // If the current token is a label, parse it recursively
                 Token::Label(inner_label) => {
-                    self.parse_label(graph, context, branching, &inner_label, go_from_map, go_to_map, go_active)?;
+                    self.parse_label(context, branching, &inner_label, go_from_map, go_to_map, go_active)?;
                 }
                 Token::EventStart(label) => {
-                    events.push(self.create_event_node(graph, context, BpmnEvent::Start(label.clone()))?);
+                    events.push(self.create_event_node(context, BpmnEvent::Start(label.clone()))?);
                 }
                 Token::EventMiddle(label) => {
-                    events.push(self.create_event_node(graph, context, BpmnEvent::Middle(label.clone()))?);
+                    events.push(self.create_event_node(context, BpmnEvent::Middle(label.clone()))?);
                 }
                 Token::EventEnd(label) => {
-                    events.push(self.create_event_node(graph, context, BpmnEvent::End(label.clone()))?);
+                    events.push(self.create_event_node(context, BpmnEvent::End(label.clone()))?);
                 }
                 Token::ActivityTask(label) => {
-                    events.push(self.create_event_node(graph, context, BpmnEvent::ActivityTask(label.clone()))?);
+                    events.push(self.create_event_node(context, BpmnEvent::ActivityTask(label.clone()))?);
                 }
                 Token::Go => { 
                     let from_id = events.last().map(|event| event.1);
-                    self.parse_go(graph, from_id, go_from_map, go_to_map, go_active)?; 
+                    self.parse_go(from_id, go_from_map, go_to_map, go_active)?; 
                     continue; 
                 },
                 Token::GatewayExclusive => {
-                    self.handle_gateway_in_label(graph, context, branching, &mut events)?;
+                    self.handle_gateway_in_label(context, branching, &mut events)?;
                     continue;
                 },
                 Token::Error(message) => return Err(message.clone()),
@@ -318,11 +314,10 @@ impl<'a> Parser<'a> {
     /// Create an event node
     fn create_event_node(
         &mut self,
-        graph: &mut Graph,
         context: &ParseContext,
         event: BpmnEvent,
     ) -> Result<(BpmnEvent, usize, Option<String>, Option<String>), String> {
-        let node_id = graph.next_node_id();
+        let node_id = self.graph.next_node_id();
         Ok((
             event,
             node_id,
@@ -334,13 +329,12 @@ impl<'a> Parser<'a> {
     /// Handle a gateway inside a branch
     fn handle_gateway_in_label(
         &mut self,
-        graph: &mut Graph,
         context: &mut ParseContext,
         branching: &mut ParseBranching,
         events: &mut Vec<(BpmnEvent, usize, Option<String>, Option<String>)>,
     ) -> Result<(), String> {
         // Assign a unique node ID to this gateway
-        let gateway_id = graph.next_node_id();
+        let gateway_id = self.graph.next_node_id();
         context.last_node_id = Some(gateway_id);
         
         events.push((
@@ -351,29 +345,28 @@ impl<'a> Parser<'a> {
         ));
     
         // Store the gateway_id and parse branches without advancing
-        return self.parse_gateway_common(graph, context, gateway_id, branching, true);
+        return self.parse_gateway_common(context, gateway_id, branching, true);
     }
 
     /// Connect two nodes with an edge if needed
-    fn connect_nodes(&mut self, graph: &mut Graph, context: &mut ParseContext, node_id: usize) {
+    fn connect_nodes(&mut self, context: &mut ParseContext, node_id: usize) {
         if let Some(last_node_id) = context.last_node_id {
             let edge = Edge::new(last_node_id, node_id, None);
-            graph.add_edge(edge);
+            self.graph.add_edge(edge);
         }
         context.last_node_id = Some(node_id);
     }
 
     /// Common function to parse an event or task
-    fn parse_common(&mut self, graph: &mut Graph, context: &mut ParseContext, event: BpmnEvent) -> Result<(), String> {
-        let node_id = graph.add_node_noid(event, context.current_pool.clone(), context.current_lane.clone());
-        self.connect_nodes(graph, context, node_id);
+    fn parse_common(&mut self, context: &mut ParseContext, event: BpmnEvent) -> Result<(), String> {
+        let node_id = self.graph.add_node_noid(event, context.current_pool.clone(), context.current_lane.clone());
+        self.connect_nodes(context, node_id);
         Ok(())
     }
 
     /// Parse a go
     fn parse_go(
         &mut self, 
-        graph: &mut Graph, 
         from_id: Option<usize>,
         go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>, 
         go_to_map: &mut HashMap<String, Vec<usize>>, 
@@ -392,7 +385,7 @@ impl<'a> Parser<'a> {
             }
             Token::JoinLabel(_) => {
                 *go_active = false;
-                let next_node_id = graph.last_node_id + 1;
+                let next_node_id = self.graph.last_node_id + 1;
                 self.handle_go_to(next_node_id, go_to_map)?;
             }
             Token::Error(message) => return Err(message.clone()),
