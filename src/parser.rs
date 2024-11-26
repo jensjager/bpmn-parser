@@ -72,9 +72,10 @@ impl<'a> Parser<'a> {
             }
 
             // Match the current token and parse accordingly
-            match &self.current_token {
-                Token::Pool(label) => self.parse_pool(&mut context, label, &mut go_active),
-                Token::Lane(label) => self.parse_lane(&mut context, label, &mut go_active),
+            let current_token = self.current_token.clone();
+            match current_token {
+                Token::Pool(label) => self.parse_pool(&mut context, &label, &mut go_active),
+                Token::Lane(label) => self.parse_lane(&mut context, &label, &mut go_active),
                 Token::Go => { self.parse_go(&mut graph, &mut context, &mut go_from_map, &mut go_to_map, &mut go_active)?; continue; },
                 Token::EventStart(label) => self.parse_event(&mut graph, &mut context, BpmnEvent::Start(label.clone()))?,
                 Token::EventMiddle(label) => self.parse_event(&mut graph, &mut context, BpmnEvent::Middle(label.clone()))?,
@@ -141,17 +142,19 @@ impl<'a> Parser<'a> {
     }
 
     /// Set the current pool
-    fn parse_pool(&self, context: &mut ParseContext, label: &str, go_active: &mut bool) {
+    fn parse_pool(&mut self, context: &mut ParseContext, label: &str, go_active: &mut bool) {
         context.current_pool = Some(label.to_string());
         context.current_lane = None;
         context.last_node_id = None;
+        self.lexer.seen_start = false;
         *go_active = false;
     }
 
     /// Set the current lane
-    fn parse_lane(&self, context: &mut ParseContext, label: &str, go_active: &mut bool) {
+    fn parse_lane(&mut self, context: &mut ParseContext, label: &str, go_active: &mut bool) {
         context.current_lane = Some(label.to_string());
         context.last_node_id = None;
+        self.lexer.seen_start = false;
         *go_active = false;
     }
 
@@ -269,6 +272,21 @@ impl<'a> Parser<'a> {
             }
         } else if let Token::JoinLabel(_) = self.current_token {
             *go_active = false;
+            // Check that there is a node after the 'G' token
+            if !matches!(
+                self.peek(),
+                Token::EventStart(_)    | 
+                Token::EventMiddle(_)   | 
+                Token::EventEnd(_)      | 
+                Token::ActivityTask(_)  | 
+                Token::GatewayExclusive
+            ) {
+                return Err(format!(
+                    "A label cannot end with an outgoing 'G' token at line {:?}\n{}",
+                    self.lexer.line, self.lexer.highlight_error()
+                ));
+            }
+
             // Loop through all join labels and store the node IDs
             let next_node_id = graph.last_node_id + 1;
             while let Token::JoinLabel(label) = &self.current_token {
@@ -370,9 +388,23 @@ impl<'a> Parser<'a> {
             }
         } else if let Token::JoinLabel(_) = self.current_token {
             *go_active = false;
-
-            // Loop through all join labels and store the node IDs
             let next_node_id = graph.last_node_id + 1;
+
+            // Check that there is a node after the 'G' token
+            if !matches!(
+                self.peek(),
+                Token::EventStart(_)    | 
+                Token::EventMiddle(_)   | 
+                Token::EventEnd(_)      | 
+                Token::ActivityTask(_)  | 
+                Token::GatewayExclusive
+            ) {
+                return Err(format!(
+                    "Cannot end with an outgoing 'G' token at line {:?}\n{}",
+                    self.lexer.line, self.lexer.highlight_error()
+                ));
+            }
+            // Loop through all join labels and store the node IDs
             while let Token::JoinLabel(label) = &self.current_token {
                 go_to_map.entry(label.clone()).or_insert(vec![]).push(next_node_id);
                 self.advance();

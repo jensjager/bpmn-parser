@@ -26,7 +26,7 @@ pub struct Lexer<'a> {
     current_char: Option<char>,     // Current character being examined
     pub line: usize,                // Current line number
     column: usize,                  // Current column number
-    seen_start: bool,               // State flag for distinguishing event start/middle
+    pub seen_start: bool,               // State flag for distinguishing event start/middle
 }
 
 impl<'a> Lexer<'a> {
