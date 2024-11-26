@@ -10,12 +10,15 @@ mod to_xml;
 use crate::read_input::read_lines;
 use crate::to_xml::generate_bpmn;
 use common::bpmn_event::BpmnEvent;
+use common::graph::Graph;
+use common::pool::Pool;
 use layout::assign_bend_points::assign_bend_points;
 use layout::crossing_minimization::reduce_crossings;
 use layout::node_positioning::assign_xy_to_nodes;
 use layout::solve_layer_assignment::solve_layer_assignment;
 use lexer::Lexer;
 use parser::Parser;
+use svg::Node;
 #[cfg(test)]
 use test::use_cases_tests;
 
@@ -77,12 +80,14 @@ pub fn run_parser(input: &str) -> String {
         Ok(mut graph) => {
             println!("Parsed BPMN Graph:");
 
-            let layers = solve_layer_assignment(&graph);
-            let new_layers = reduce_crossings(&mut graph, &layers);
-            assign_xy_to_nodes(&mut graph, &new_layers);
-            assign_bend_points(&mut graph);
+            let mut pools_lanes_layers = solve_layer_assignment(&mut graph);
+            reduce_crossings(&mut pools_lanes_layers, &mut graph);
+            assign_xy_to_nodes(&mut pools_lanes_layers);
+            // assign_bend_points(&mut graph);
 
             for node in &graph.nodes {
+                println!("{}", "-".repeat(40));
+                println!("{}", node);
                 if let Some(event) = &node.event {
                     match event {
                         BpmnEvent::Start(label) => {
@@ -117,6 +122,9 @@ pub fn run_parser(input: &str) -> String {
                     println!("  From Node {} to Node {}", edge.from, edge.to);
                 }
             }
+
+            print_debug_info(&pools_lanes_layers);
+
             return generate_bpmn(&graph);
         }
         Err(e) => {
@@ -143,4 +151,29 @@ fn convert_bpmn_to_image(output_type: String) -> Result<(), String> {
         }
         Err(e) => Err(format!("Failed to execute command: {}", e)),
     }
+}
+
+fn print_debug_info(pools: &Vec<Pool>) {
+    println!("{}", "-".repeat(20));
+    for pool in pools {
+        println!("Pool: {}", pool.get_pool_name());
+        let nr_of_lanes = pool.get_lanes().len();
+        println!("Number of lanes: {}", nr_of_lanes);
+        for lane in pool.get_lanes() {
+            println!("\tLane: {}", lane.get_lane());
+            for layer in lane.get_layers() {
+                println!("\t\tLayer ID: {}", layer.get_layer());
+                for node in layer.get_nodes() {
+                    let x = node.x.unwrap_or(f64::NAN);
+                    let y = node.y.unwrap_or(f64::NAN);
+                    println!(
+                        "\t\t\tNode ID: {}, X: {}, Y: {}, Event: {:?}, Stroke: {:?}, Fill: {:?}",
+                        node.id, x, y, node.event, node.stroke_color, node.fill_color
+                    );
+                }
+            }
+        }
+    }
+
+    println!("{}", "-".repeat(20));
 }

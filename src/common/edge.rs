@@ -4,12 +4,18 @@ pub struct Edge {
     pub to: usize,
     pub text: Option<String>,
     pub adjusted_points: Option<Vec<(f64, f64)>>, // Uued, lõplikud punktid, mis hõlmavad algus-, lõpp- ja painutuspunkte
-    pub pool: Option<String>,         // Pool context
-    pub lane: Option<String>,         // Lane context
+    pub pool: Option<String>,                     // Pool context
+    pub lane: Option<String>,                     // Lane context
 }
 
 impl Edge {
-    pub fn new(from: usize, to: usize, text: Option<String>, pool: Option<String>, lane: Option<String>) -> Self {
+    pub fn new(
+        from: usize,
+        to: usize,
+        text: Option<String>,
+        pool: Option<String>,
+        lane: Option<String>,
+    ) -> Self {
         Edge {
             from,
             to,
@@ -20,9 +26,7 @@ impl Edge {
         }
     }
 
-
-
-// pub fn with_default_text(from: usize, to: usize) -> Self {
+    // pub fn with_default_text(from: usize, to: usize) -> Self {
     //     Edge {
     //         from,
     //         to,

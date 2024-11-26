@@ -12,6 +12,8 @@ pub struct Node {
     pub fill_color: Option<String>,   // for example, "red", "blue", "green"
     pub pool: Option<String>,         // Pool context
     pub lane: Option<String>,         // Lane context
+    pub crosses_lanes: bool,
+    pub to_node_id: Option<usize>,
 }
 
 impl Node {
@@ -33,20 +35,8 @@ impl Node {
             lane,
             fill_color: None,
             stroke_color: None,
-        }
-    }
-
-    pub fn with_default_event(id: usize, x: Option<f64>, y: Option<f64>) -> Self {
-        Node {
-            id,
-            x,
-            y,
-            y_offset: Some(0.0),
-            event: None,
-            pool: None,
-            lane: None,
-            fill_color: None,
-            stroke_color: None,
+            crosses_lanes: false,
+            to_node_id: None,
         }
     }
 
@@ -55,9 +45,14 @@ impl Node {
         self.y = Some(y);
         self.y_offset = Some(y_offset)
     }
+}
 
-    pub fn set_context(&mut self, pool: Option<String>, lane: Option<String>) {
-        self.pool = pool;
-        self.lane = lane;
+impl std::fmt::Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "Node {{ id: {}, x: {:?}, y: {:?}, event: {:?}, pool: {:?}, lane: {:?} }}",
+            self.id, self.x, self.y, self.event, self.pool, self.lane
+        )
     }
 }
