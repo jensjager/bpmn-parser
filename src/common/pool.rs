@@ -4,11 +4,22 @@ use crate::common::lane::Lane;
 pub struct Pool {
     pool_name: String,
     lanes: Vec<Lane>,
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
 }
 
 impl Pool {
     pub fn new(pool_name: String, lanes: Vec<Lane>) -> Self {
-        Pool { pool_name, lanes }
+        Pool {
+            pool_name,
+            lanes,
+            x: None,
+            y: None,
+            width: None,
+            height: None,
+        }
     }
 
     pub fn add_lane(&mut self, lane: Lane) {

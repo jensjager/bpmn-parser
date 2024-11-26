@@ -1,122 +1,193 @@
-// use crate::common::edge::Edge;
-use crate::common::bpmn_event::{self, BpmnEvent};
+// to_xml.rs
+
+use crate::common::bpmn_event::BpmnEvent;
+use crate::common::edge::Edge;
 use crate::common::graph::Graph;
+use crate::common::lane::Lane;
 use crate::common::node::Node;
+use crate::common::pool::Pool;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
-
-/// Adds color attributes for `stroke_color` and `fill_color` to the BPMN node XML if they exist.
-fn add_color_attributes(stroke_color: Option<&String>, fill_color: Option<&String>) -> String {
-    let stroke = stroke_color
-        .map(|color| format!(r#" bioc:stroke="{}""#, color))
-        .unwrap_or_default();
-    let fill = fill_color
-        .map(|color| format!(r#" bioc:fill="{}""#, color))
-        .unwrap_or_default();
-    format!("{}{}", stroke, fill)
-}
 
 pub fn generate_bpmn(graph: &Graph) -> String {
     let mut bpmn = String::from(
         r#"<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
 xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
 xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
 xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
 xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_1"
 targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler"
 exporterVersion="5.17.0">
-  <bpmn:process id="Process_1" isExecutable="true">
 "#,
     );
 
-    // Создаем узлы
-    for node in &graph.nodes {
-        let stroke_color = node.stroke_color.as_ref();
-        let fill_color = node.fill_color.as_ref();
-        let color_attributes = add_color_attributes(stroke_color, fill_color);
+    // Begin collaboration
+    bpmn.push_str(r#"  <bpmn:collaboration id="Collaboration_1">"#);
 
-        if let Some(event) = &node.event {
-            match event {
-                BpmnEvent::Start(label) => {
-                    bpmn.push_str(&format!(
-                        r#"<bpmn:startEvent id="StartEvent_{}" name="{}">
-    <bpmn:outgoing>Flow_{}</bpmn:outgoing>
-  </bpmn:startEvent>
-"#,
-                        node.id, label, node.id
-                    ));
-                }
-                BpmnEvent::Middle(label) | BpmnEvent::ActivityTask(label) => {
-                    bpmn.push_str(&format!(
-                        r#"<bpmn:task id="Activity_{}" name="{}">
-    <bpmn:incoming>Flow_{}</bpmn:incoming>
-    <bpmn:outgoing>Flow_{}</bpmn:outgoing>
-  </bpmn:task>
-"#,
-                        node.id,
-                        label,
-                        node.id - 1,
-                        node.id
-                    ));
-                }
-                BpmnEvent::End(label) => {
-                    bpmn.push_str(&format!(
-                        r#"<bpmn:endEvent id="EndEvent_{}" name="{}">
-    <bpmn:incoming>Flow_{}</bpmn:incoming>
-  </bpmn:endEvent>
-"#,
-                        node.id,
-                        label,
-                        node.id - 1
-                    ));
-                }
-                BpmnEvent::GatewayExclusive => {
-                    bpmn.push_str(&format!(
-                        r#"<bpmn:exclusiveGateway id="Gateway_{}">
-    <bpmn:incoming>Flow_{}</bpmn:incoming>
-    <bpmn:outgoing>Flow_{}</bpmn:outgoing>
-  </bpmn:exclusiveGateway>
-"#,
-                        node.id,
-                        node.id - 1,
-                        node.id
-                    ));
-                }
-                BpmnEvent::GatewayJoin(label) => {
-                    bpmn.push_str(&format!(
-                        r#"<bpmn:parallelGateway id="Gateway_{}" name="{}">
-    <bpmn:incoming>Flow_{}</bpmn:incoming>
-    <bpmn:outgoing>Flow_{}</bpmn:outgoing>
-  </bpmn:parallelGateway>
-"#,
-                        node.id,
-                        label,
-                        node.id - 1,
-                        node.id
-                    ));
-                }
-            }
-        }
+    // Collect unique pool IDs from nodes
+    let pool_ids: HashSet<String> = graph
+        .nodes
+        .iter()
+        .filter_map(|node| node.pool.clone())
+        .collect();
 
-        // Добавляем `BPMNShape` с атрибутами цвета
+    for pool_id in &pool_ids {
         bpmn.push_str(&format!(
-            r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}"{}>
-      <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
-      <bpmndi:BPMNLabel />
-    </bpmndi:BPMNShape>
-"#,
-            get_node_bpmn_id(node),
-            get_node_bpmn_id(node),
-            color_attributes,
-            node.x.unwrap_or(0.0),
-            node.y.unwrap_or(0.0),
-            get_node_size(node).0,
-            get_node_size(node).1
+            r#"<bpmn:participant id="Participant_{}" name="{}" processRef="Process_{}" />"#,
+            pool_id, pool_id, pool_id
         ));
     }
 
-    // Создаем последовательные потоки
+    bpmn.push_str(r#"  </bpmn:collaboration>"#);
+
+    // Generate processes for each pool
+    for pool_id in &pool_ids {
+        bpmn.push_str(&format!(
+            r#"<bpmn:process id="Process_{}" isExecutable="true">"#,
+            pool_id
+        ));
+
+        // Get nodes in this pool
+        let pool_nodes: Vec<&Node> = graph
+            .nodes
+            .iter()
+            .filter(|node| node.pool.as_deref() == Some(pool_id.as_str()))
+            .collect();
+
+        // Collect unique lane IDs within this pool
+        let lane_ids: HashSet<String> = pool_nodes
+            .iter()
+            .filter_map(|node| node.lane.clone())
+            .collect();
+
+        // Generate laneSet if there are lanes
+        if !lane_ids.is_empty() {
+            bpmn.push_str(&format!(
+                r#"<bpmn:laneSet id="LaneSet_{}">"#,
+                pool_id
+            ));
+
+            for lane_id in &lane_ids {
+                bpmn.push_str(&format!(
+                    r#"<bpmn:lane id="Lane_{}" name="{}">"#,
+                    lane_id, lane_id
+                ));
+
+                // Get nodes in this lane
+                let lane_nodes: Vec<&Node> = pool_nodes
+                    .iter()
+                    .filter(|node| node.lane.as_deref() == Some(lane_id.as_str()))
+                    .cloned()
+                    .collect();
+
+                // Add flowNodeRefs
+                for node in &lane_nodes {
+                    let node_id = get_node_bpmn_id(node);
+                    bpmn.push_str(&format!(
+                        r#"<bpmn:flowNodeRef>{}</bpmn:flowNodeRef>"#,
+                        node_id
+                    ));
+                }
+
+                bpmn.push_str(r#"</bpmn:lane>"#);
+            }
+
+            bpmn.push_str(r#"</bpmn:laneSet>"#);
+        }
+
+        // Generate flow nodes (events, tasks, etc.)
+        for node in &pool_nodes {
+            generate_flow_node(&mut bpmn, node, graph);
+        }
+
+        // Generate sequence flows
+        generate_sequence_flows(&mut bpmn, &graph, &pool_nodes);
+
+        bpmn.push_str(r#"</bpmn:process>"#);
+    }
+
+    // Add BPMN diagram elements
+    bpmn.push_str(
+        r#"<bpmndi:BPMNDiagram id="BPMNDiagram_1">
+  <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1">
+"#,
+    );
+
+    // Add BPMN shapes for participants (pools)
+    let mut pool_position_y = 100.0;
+    let pool_height = 400.0;
+
+    for pool_id in &pool_ids {
+        bpmn.push_str(&format!(
+            r#"<bpmndi:BPMNShape id="Participant_{}_di" bpmnElement="Participant_{}" isHorizontal="true">
+    <dc:Bounds x="{:.2}" y="{:.2}" width="{:.2}" height="{:.2}" />
+  </bpmndi:BPMNShape>"#,
+            pool_id,
+            pool_id,
+            /* x */ 100.0,
+            /* y */ pool_position_y,
+            /* width */ 1000.0,
+            /* height */ pool_height,
+        ));
+
+        let pool_nodes: Vec<&Node> = graph
+            .nodes
+            .iter()
+            .filter(|node| node.pool.as_deref() == Some(pool_id.as_str()))
+            .collect();
+
+        let lane_ids: HashSet<String> = pool_nodes
+            .iter()
+            .filter_map(|node| node.lane.clone())
+            .collect();
+
+
+        let lane_height = pool_height / lane_ids.len() as f64;
+        let mut lane_position_y = pool_position_y;
+
+        for lane_id in &lane_ids {
+            bpmn.push_str(&format!(
+                r#"<bpmndi:BPMNShape id="Lane_{}_di" bpmnElement="Lane_{}" isHorizontal="true">
+    <dc:Bounds x="{:.2}" y="{:.2}" width="{:.2}" height="{:.2}" />
+  </bpmndi:BPMNShape>"#,
+                lane_id,
+                lane_id,
+                /* x */ 100.0,
+                /* y */ lane_position_y,
+                /* width */ 1000.0,
+                /* height */ lane_height,
+            ));
+            lane_position_y += lane_height;
+        }
+
+        pool_position_y += pool_height + 50.0; // Add some space between pools
+    }
+
+    // Add BPMN shapes for flow nodes
+    for node in &graph.nodes {
+        let (width, height) = if let Some(event) = &node.event {
+            get_node_size(event)
+        } else {
+            (100, 80)
+        };
+
+        bpmn.push_str(&format!(
+            r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}">
+      <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
+    </bpmndi:BPMNShape>"#,
+            get_node_bpmn_id(node),
+            get_node_bpmn_id(node),
+            node.x.unwrap_or(0.0),
+            node.y.unwrap_or(0.0),
+            width,
+            height
+        ));
+    }
+
+    // Add BPMN edges for sequence flows
     for edge in &graph.edges {
         let from_node = graph.nodes.iter().find(|n| n.id == edge.from).unwrap();
         let to_node = graph.nodes.iter().find(|n| n.id == edge.to).unwrap();
@@ -125,82 +196,16 @@ exporterVersion="5.17.0">
         let target_ref = get_node_bpmn_id(to_node);
 
         bpmn.push_str(&format!(
-            r#"<bpmn:sequenceFlow id="Flow_{}_{}" sourceRef="{}" targetRef="{}" />
-"#,
-            edge.from, edge.to, source_ref, target_ref
+            r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">
+    <!-- Add waypoints if available -->
+  </bpmndi:BPMNEdge>"#,
+            edge.from, edge.to, edge.from, edge.to
         ));
     }
-
-    bpmn.push_str(r#"  </bpmn:process>"#);
-
-    // Добавляем детали диаграммы BPMN
-    bpmn.push_str(
-        r#"
-  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
-"#,
-    );
-
-    // Define node sizes based on event types
-    // Defineeri sõlmede suurused otse
-    let default_node_size = (100, 80);
-    let gateway_size = (50, 50);
-    let event_size = (36, 36);
-
-    let node_sizes: Vec<(usize, usize)> = graph
-        .nodes
-        .iter()
-        .map(|node| match &node.event {
-            Some(BpmnEvent::Start(_)) | Some(BpmnEvent::End(_)) => event_size,
-            Some(BpmnEvent::GatewayExclusive) | Some(BpmnEvent::GatewayJoin(_)) => gateway_size,
-            Some(BpmnEvent::Middle(_)) | Some(BpmnEvent::ActivityTask(_)) => default_node_size,
-            _ => default_node_size,
-        })
-        .collect();
-
-    // Add BPMN shapes for nodes using calculated positions
-    for (i, node) in graph.nodes.iter().enumerate() {
-        let x = node.x.unwrap_or(0.0);
-        let y = node.y.unwrap_or(0.0) + node.y_offset.unwrap_or(0.0);
-        let (width, height) = node_sizes[i];
-
-        let bpmn_element_id = get_node_bpmn_id(node);
-
-        bpmn.push_str(&format!(
-            r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}">
-      <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
-      <bpmndi:BPMNLabel />
-    </bpmndi:BPMNShape>
-"#,
-            bpmn_element_id, bpmn_element_id, x, y, width, height
-        ));
-    }
-
-    // Add BPMN edges for sequence flows with adjusted waypoints
-    for edge in &graph.edges {
-
-        bpmn.push_str(&format!(
-            r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">"#,
-            edge.from, edge.to, edge.from, edge.to,
-        ));
-
-        // Kasutame `adjusted_points`-i iga waypoini jaoks
-        if let Some(points) = &edge.adjusted_points {
-            for &(x, y) in points {
-                bpmn.push_str(&format!(
-                    r#"<di:waypoint x="{:.2}" y="{:.2}" />"#,
-                    x, y
-                ));
-            }
-        }
-
-        bpmn.push_str("</bpmndi:BPMNEdge>");
-    }
-
 
     bpmn.push_str(
-        r#"    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
+        r#"  </bpmndi:BPMNPlane>
+</bpmndi:BPMNDiagram>
 </bpmn:definitions>
 "#,
     );
@@ -208,8 +213,272 @@ exporterVersion="5.17.0">
     bpmn
 }
 
+fn generate_flow_node(bpmn: &mut String, node: &Node, graph: &Graph) {
+    if let Some(event) = &node.event {
+        match event {
+            // Start Events
+            BpmnEvent::Start(label)
+            | BpmnEvent::StartTimerEvent(label)
+            | BpmnEvent::StartSignalEvent(label)
+            | BpmnEvent::StartMessageEvent(label)
+            | BpmnEvent::StartConditionalEvent(label) => {
+                bpmn.push_str(&format!(
+                    r#"<bpmn:startEvent id="{}" name="{}">"#,
+                    get_node_bpmn_id(node),
+                    label
+                ));
+
+                // Add outgoing flows
+                for edge in graph.edges.iter().filter(|e| e.from == node.id) {
+                    bpmn.push_str(&format!(
+                        r#"<bpmn:outgoing>Flow_{}_{}"</bpmn:outgoing>"#,
+                        edge.from, edge.to
+                    ));
+                }
+
+                bpmn.push_str(r#"</bpmn:startEvent>"#);
+            }
+
+            // End Events
+            BpmnEvent::End(label)
+            | BpmnEvent::EndErrorEvent(label)
+            | BpmnEvent::EndCancelEvent(label)
+            | BpmnEvent::EndSignalEvent(label)
+            | BpmnEvent::EndMessageEvent(label)
+            | BpmnEvent::EndTerminateEvent(label)
+            | BpmnEvent::EndEscalationEvent(label)
+            | BpmnEvent::EndCompensationEvent(label) => {
+                bpmn.push_str(&format!(
+                    r#"<bpmn:endEvent id="{}" name="{}">"#,
+                    get_node_bpmn_id(node),
+                    label
+                ));
+
+                // Add incoming flows
+                for edge in graph.edges.iter().filter(|e| e.to == node.id) {
+                    bpmn.push_str(&format!(
+                        r#"<bpmn:incoming>Flow_{}_{}"</bpmn:incoming>"#,
+                        edge.from, edge.to
+                    ));
+                }
+
+                bpmn.push_str(r#"</bpmn:endEvent>"#);
+            }
+
+            // Tasks and Activities
+            BpmnEvent::ActivityTask(label)
+            | BpmnEvent::ActivitySubprocess(label)
+            | BpmnEvent::ActivityCallActivity(label)
+            | BpmnEvent::ActivityEventSubprocess(label)
+            | BpmnEvent::ActivityTransaction(label)
+            | BpmnEvent::TaskUser(label)
+            | BpmnEvent::TaskService(label)
+            | BpmnEvent::TaskBusinessRule(label)
+            | BpmnEvent::TaskScript(label) => {
+                let element_type = match event {
+                    BpmnEvent::ActivityTask(_) => "task",
+                    BpmnEvent::TaskUser(_) => "userTask",
+                    BpmnEvent::TaskService(_) => "serviceTask",
+                    BpmnEvent::TaskBusinessRule(_) => "businessRuleTask",
+                    BpmnEvent::TaskScript(_) => "scriptTask",
+                    BpmnEvent::ActivitySubprocess(_) => "subProcess",
+                    BpmnEvent::ActivityCallActivity(_) => "callActivity",
+                    BpmnEvent::ActivityEventSubprocess(_) => "subProcess triggeredByEvent=\"true\"",
+                    BpmnEvent::ActivityTransaction(_) => "transaction",
+                    _ => "task",
+                };
+
+                bpmn.push_str(&format!(
+                    r#"<bpmn:{} id="{}" name="{}">"#,
+                    element_type,
+                    get_node_bpmn_id(node),
+                    label
+                ));
+
+                // Add incoming flows
+                for edge in graph.edges.iter().filter(|e| e.to == node.id) {
+                    bpmn.push_str(&format!(
+                        r#"<bpmn:incoming>Flow_{}_{}"</bpmn:incoming>"#,
+                        edge.from, edge.to
+                    ));
+                }
+
+                // Add outgoing flows
+                for edge in graph.edges.iter().filter(|e| e.from == node.id) {
+                    bpmn.push_str(&format!(
+                        r#"<bpmn:outgoing>Flow_{}_{}"</bpmn:outgoing>"#,
+                        edge.from, edge.to
+                    ));
+                }
+
+                bpmn.push_str(&format!(r#"</bpmn:{}>"#, element_type));
+            }
+
+            // Gateways
+            BpmnEvent::GatewayExclusive | BpmnEvent::GatewayInclusive | BpmnEvent::GatewayJoin(_) => {
+                let element_type = match event {
+                    BpmnEvent::GatewayExclusive => "exclusiveGateway",
+                    BpmnEvent::GatewayInclusive => "inclusiveGateway",
+                    BpmnEvent::GatewayJoin(_) => "parallelGateway",
+                    _ => "exclusiveGateway",
+                };
+
+                bpmn.push_str(&format!(
+                    r#"<bpmn:{} id="{}">"#,
+                    element_type,
+                    get_node_bpmn_id(node),
+                ));
+
+                // Add incoming flows
+                for edge in graph.edges.iter().filter(|e| e.to == node.id) {
+                    bpmn.push_str(&format!(
+                        r#"<bpmn:incoming>Flow_{}_{}"</bpmn:incoming>"#,
+                        edge.from, edge.to
+                    ));
+                }
+
+                // Add outgoing flows
+                for edge in graph.edges.iter().filter(|e| e.from == node.id) {
+                    bpmn.push_str(&format!(
+                        r#"<bpmn:outgoing>Flow_{}_{}"</bpmn:outgoing>"#,
+                        edge.from, edge.to
+                    ));
+                }
+
+                bpmn.push_str(&format!(r#"</bpmn:{}>"#, element_type));
+            }
+
+            // Data Objects
+            BpmnEvent::DataStoreReference(label) => {
+                bpmn.push_str(&format!(
+                    r#"<bpmn:dataStoreReference id="{}" name="{}" />"#,
+                    get_node_bpmn_id(node),
+                    label
+                ));
+            }
+            BpmnEvent::DataObjectReference(label) => {
+                bpmn.push_str(&format!(
+                    r#"<bpmn:dataObjectReference id="{}" name="{}" />"#,
+                    get_node_bpmn_id(node),
+                    label
+                ));
+            }
+            _ => {}
+        }
+    }
+}
+
+fn generate_sequence_flows(
+    bpmn: &mut String,
+    graph: &Graph,
+    pool_nodes: &Vec<&Node>,
+) {
+    let node_ids: HashSet<usize> = pool_nodes.iter().map(|node| node.id).collect();
+
+    for edge in &graph.edges {
+        if node_ids.contains(&edge.from) && node_ids.contains(&edge.to) {
+            let from_node = graph.nodes.iter().find(|n| n.id == edge.from).unwrap();
+            let to_node = graph.nodes.iter().find(|n| n.id == edge.to).unwrap();
+
+            let source_ref = get_node_bpmn_id(from_node);
+            let target_ref = get_node_bpmn_id(to_node);
+
+            bpmn.push_str(&format!(
+                r#"<bpmn:sequenceFlow id="Flow_{}_{}" sourceRef="{}" targetRef="{}" />"#,
+                edge.from, edge.to, source_ref, target_ref
+            ));
+        }
+    }
+}
+
+fn get_node_bpmn_id(node: &Node) -> String {
+    if let Some(event) = &node.event {
+        match event {
+            BpmnEvent::Start(_) | BpmnEvent::StartTimerEvent(_)
+            | BpmnEvent::StartSignalEvent(_) | BpmnEvent::StartMessageEvent(_)
+            | BpmnEvent::StartConditionalEvent(_) => format!("StartEvent_{}", node.id),
+
+            BpmnEvent::End(_) | BpmnEvent::EndErrorEvent(_)
+            | BpmnEvent::EndCancelEvent(_) | BpmnEvent::EndSignalEvent(_)
+            | BpmnEvent::EndMessageEvent(_) | BpmnEvent::EndTerminateEvent(_)
+            | BpmnEvent::EndEscalationEvent(_) | BpmnEvent::EndCompensationEvent(_) => {
+                format!("EndEvent_{}", node.id)
+            }
+
+            BpmnEvent::ActivityTask(_)
+            | BpmnEvent::TaskUser(_)
+            | BpmnEvent::TaskService(_)
+            | BpmnEvent::TaskBusinessRule(_)
+            | BpmnEvent::TaskScript(_) => format!("Activity_{}", node.id),
+
+            BpmnEvent::ActivitySubprocess(_) => format!("SubProcess_{}", node.id),
+            BpmnEvent::ActivityCallActivity(_) => format!("CallActivity_{}", node.id),
+            BpmnEvent::ActivityEventSubprocess(_) => format!("EventSubProcess_{}", node.id),
+            BpmnEvent::ActivityTransaction(_) => format!("Transaction_{}", node.id),
+
+            BpmnEvent::GatewayExclusive
+            | BpmnEvent::GatewayInclusive
+            | BpmnEvent::GatewayJoin(_) => format!("Gateway_{}", node.id),
+
+            BpmnEvent::DataStoreReference(_) => format!("DataStoreReference_{}", node.id),
+            BpmnEvent::DataObjectReference(_) => format!("DataObjectReference_{}", node.id),
+
+            // Add other event types as needed
+            _ => format!("Node_{}", node.id),
+        }
+    } else {
+        format!("Node_{}", node.id)
+    }
+}
+
+pub fn get_node_size(event: &BpmnEvent) -> (usize, usize) {
+    match event {
+        // Start Events
+        BpmnEvent::Start(_)
+        | BpmnEvent::StartTimerEvent(_)
+        | BpmnEvent::StartSignalEvent(_)
+        | BpmnEvent::StartMessageEvent(_)
+        | BpmnEvent::StartConditionalEvent(_) => (36, 36),
+
+        // End Events
+        BpmnEvent::End(_)
+        | BpmnEvent::EndErrorEvent(_)
+        | BpmnEvent::EndCancelEvent(_)
+        | BpmnEvent::EndSignalEvent(_)
+        | BpmnEvent::EndMessageEvent(_)
+        | BpmnEvent::EndTerminateEvent(_)
+        | BpmnEvent::EndEscalationEvent(_)
+        | BpmnEvent::EndCompensationEvent(_) => (36, 36),
+
+        // Gateways
+        BpmnEvent::GatewayExclusive
+        | BpmnEvent::GatewayInclusive
+        | BpmnEvent::GatewayJoin(_) => (50, 50),
+
+        // Activities
+        BpmnEvent::ActivityTask(_)
+        | BpmnEvent::ActivityCallActivity(_)
+        | BpmnEvent::TaskUser(_)
+        | BpmnEvent::TaskService(_)
+        | BpmnEvent::TaskBusinessRule(_)
+        | BpmnEvent::TaskScript(_) => (100, 80),
+
+        // Subprocesses and Transactions (expanded)
+        BpmnEvent::ActivitySubprocess(_)
+        | BpmnEvent::ActivityEventSubprocess(_)
+        | BpmnEvent::ActivityTransaction(_) => (350, 200),
+
+        // Data Objects
+        BpmnEvent::DataStoreReference(_) => (50, 50),
+        BpmnEvent::DataObjectReference(_) => (36, 50),
+
+        // Default case
+        _ => (100, 80),
+    }
+}
+
 pub fn export_to_xml(bpmn: &String) {
-    // Записываем BPMN в файл (опционально)
+    // Write BPMN to file
     let file_path = "generated_bpmn.bpmn";
     let mut file = File::create(file_path).expect("Unable to create file");
     file.write_all(bpmn.as_bytes())
@@ -217,83 +486,3 @@ pub fn export_to_xml(bpmn: &String) {
 
     println!("BPMN file generated at: {}", file_path);
 }
-
-fn get_node_bpmn_id(node: &Node) -> String {
-    if let Some(event) = &node.event {
-        match event {
-            BpmnEvent::Start(_) => format!("StartEvent_{}", node.id),
-            BpmnEvent::End(_) => format!("EndEvent_{}", node.id),
-            BpmnEvent::Middle(_) | BpmnEvent::ActivityTask(_) => format!("Activity_{}", node.id),
-            BpmnEvent::GatewayExclusive => format!("Gateway_{}", node.id),
-            BpmnEvent::GatewayJoin(_) => format!("Gateway_{}", node.id),
-        }
-    } else {
-        format!("Node_{}", node.id)
-    }
-}
-
-pub(crate) fn get_node_size(node: &Node) -> (usize, usize) {
-    if let Some(event) = &node.event {
-        bpmn_event::get_node_size(event)
-    } else {
-        (100, 80) // Default size
-    }
-}
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::common::bpmn_event::BpmnEvent;
-//     use crate::common::edge::Edge;
-//     use crate::common::graph::Graph;
-//     use crate::layout::solve_layer_assignment::solve_layer_assignment;
-//     use crate::layout::crossing_minimization::reduce_crossings;
-//     use crate::layout::node_positioning::assign_xy_to_nodes;
-//     use crate::layout::assign_bend_points::assign_bend_points;
-
-
-//     fn perform_layout(graph: &mut Graph) {
-//         // Assign layers
-//         let layers = solve_layer_assignment(graph);
-//         // Reduce crossings
-//         let new_layers = reduce_crossings(graph, &layers);
-    
-//         // Assign positions to nodes using the imported function
-//         assign_xy_to_nodes(graph, &new_layers);
-    
-//         // Assign bend points to edges using the imported function
-//         assign_bend_points(graph);
-//     }
-    
-
-//     #[test]
-//     fn test_generate_bpmn_with_multiple_middle_events() {
-//         let mut graph = Graph::new(vec![], vec![]);
-
-//         let start_event = BpmnEvent::Start("Start Event".to_string());
-//         let middle_event = BpmnEvent::ActivityTask("Task 1".to_string());
-//         let middle_event2 = BpmnEvent::ActivityTask("Task 2".to_string());
-//         let middle_event3 = BpmnEvent::ActivityTask("Task 3".to_string());
-//         let end_event = BpmnEvent::End("End Event".to_string());
-
-//         graph.add_node_noid(start_event);
-//         graph.add_node_noid(middle_event);
-//         graph.add_node_noid(middle_event2);
-//         graph.add_node_noid(middle_event3);
-//         graph.add_node_noid(end_event);
-
-//         // Create edges
-//         graph.add_edge(Edge::new(0, 1, None));
-//         graph.add_edge(Edge::new(1, 2, None));
-//         graph.add_edge(Edge::new(2, 3, None));
-//         graph.add_edge(Edge::new(3, 4, None));
-
-//         // Perform layout
-//         perform_layout(&mut graph);
-
-//         // Generate BPMN
-//         let _bpmn_xml = generate_bpmn(&graph);
-
-//         // Optionally, assert on `bpmn_xml` or inspect the output file.
-//     }
-// }
