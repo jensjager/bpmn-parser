@@ -64,7 +64,6 @@ impl<'a> Parser<'a> {
         let mut go_to_map: HashMap<String, Vec<usize>> = HashMap::new(); // (label, node ids)
 
         let mut go_active = false; // Flag to indicate if a go is active (outgoing)
-        let mut inside_label = false; // Flag to indicate if we are inside a label
 
         // Parse the input
         while self.current_token != Token::Eof {
@@ -209,14 +208,9 @@ impl<'a> Parser<'a> {
                 Token::EventEnd(label) => events.push((BpmnEvent::End(label.clone()),graph.next_node_id(), context.current_pool.clone(), context.current_lane.clone())),
                 Token::ActivityTask(label) => events.push((BpmnEvent::ActivityTask(label.clone()),graph.next_node_id(), context.current_pool.clone(), context.current_lane.clone())),
                 Token::Go => { 
-                    if events.is_empty() && matches!(self.peek(), Token::Branch(_,_)) {
-                        return Err(format!(
-                            "Expected a Join for 'G' token before defining a new node at line {:?}\n{}",
-                            self.lexer.line, self.lexer.highlight_error()
-                        ));
-                    }
-                    self.parse_go(graph, context, go_from_map, go_to_map, go_active)?; 
-                    continue; },
+                    self.parse_go_in_label(graph, events.last_mut(), go_from_map, go_to_map, go_active)?; 
+                    continue; 
+                },
                 Token::GatewayExclusive => {
                     // Assign a unique node ID to this gateway
                     let gateway_id = graph.next_node_id();
@@ -241,6 +235,57 @@ impl<'a> Parser<'a> {
             branching.label_end_map.insert(label.to_string(), (exit_label.clone(), if text.is_empty() { None } else { Some(text.clone()) }));
         } else {
             return Err(format!("Expected a join label after branch label! Current token: {:?}", self.current_token));
+        }
+        *go_active = false;
+        Ok(())
+    }
+
+    fn parse_go_in_label(
+        &mut self, graph: &mut Graph, 
+        event: Option<&mut (BpmnEvent, usize, Option<String>, Option<String>)>, 
+        go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>, 
+        go_to_map: &mut HashMap<String, Vec<usize>>,
+        go_active: &mut bool
+    ) -> Result<(), String> {
+        // Save the current line and error message in case of an error
+        let line = self.lexer.line.clone();
+        let error_message = self.lexer.highlight_error();
+
+        self.advance();
+        // Check if this go is a branching go or a join go
+        if let Token::Branch(_, _) = self.current_token {
+            *go_active = true;
+            if let Some(event) = event {
+                // Loop through all branches and store the labels and texts
+                while let Token::Branch(label, text) = &self.current_token {
+                    go_from_map.entry(event.1).or_insert(vec![]).push((label.clone(), if text.is_empty() { None } else { Some(text.clone()) }));
+                    self.advance();
+                }
+            } else {
+                return Err(format!(
+                    "Expected a node before 'G' token at line {}! \n{}",
+                    self.lexer.line, self.lexer.highlight_error()
+                ));                
+            }
+        } else if let Token::JoinLabel(_) = self.current_token {
+            *go_active = false;
+            // Loop through all join labels and store the node IDs
+            let next_node_id = graph.last_node_id + 1;
+            while let Token::JoinLabel(label) = &self.current_token {
+                go_to_map.entry(label.clone()).or_insert(vec![]).push(next_node_id);
+                self.advance();
+            }
+        } else if let Token::Error(ref message) = self.current_token {
+            return Err(message.clone());
+        } else {
+            return Err(format!("Waited for a Join or a Go after 'G' token at line {:?} \n{}", line, error_message));
+        }
+        self.check_go_active_error(*go_active)?;        
+        if *go_active && matches!(self.current_token, Token::Join(_, _)) {
+            return Err(format!(
+                "A label cannot end with an outgoing 'G' token at line {:?}\n{}",
+                self.lexer.line, self.lexer.highlight_error()
+            ));
         }
         Ok(())
     }
@@ -317,9 +362,8 @@ impl<'a> Parser<'a> {
                     go_from_map.entry(last_node_id).or_insert(vec![]).push((label.clone(), if text.is_empty() { None } else { Some(text.clone()) }));
                 } else {
                     return Err(format!(
-                        "Expected a node before branch label at line {}! \n{}",
-                        self.lexer.line.clone(),
-                        self.lexer.highlight_error()
+                        "Expected a node before 'G' token at line {}! \n{}",
+                        self.lexer.line, self.lexer.highlight_error()
                     ));                
                 }
                 self.advance();
