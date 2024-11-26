@@ -37,7 +37,7 @@ impl<'a> Parser<'a> {
         self.current_token = self.lexer.next_token().unwrap_or(Token::Eof);
     }
 
-    /// Peeks at the next token
+    /// Peeks at the next token without advancing
     fn peek(&mut self) -> Token {
         self.lexer.peek_token()
     }
@@ -46,12 +46,14 @@ impl<'a> Parser<'a> {
     pub fn parse(&mut self) -> Result<Graph, String> {
         let mut graph = Graph::new(vec![], vec![]);
 
+        // Initialize the context and branching structures
         let mut context = ParseContext {
             last_node_id: None,
             current_pool: None,
             current_lane: None,
         };
 
+        // Initialize the branching structure
         let mut branching = ParseBranching {
             label_map: HashMap::new(), // (label, events)
             label_end_map: HashMap::new(), // (label, (join label, optional text))
@@ -60,9 +62,9 @@ impl<'a> Parser<'a> {
     
         };
 
+        // Initialize the go structures
         let mut go_from_map: HashMap<usize, Vec<(String, Option<String>)>> = HashMap::new(); // (node id, <(labels, optional texts)>)
         let mut go_to_map: HashMap<String, Vec<usize>> = HashMap::new(); // (label, node ids)
-
         let mut go_active = false; // Flag to indicate if a go is active (outgoing)
 
         // Parse the input
@@ -76,11 +78,11 @@ impl<'a> Parser<'a> {
             match current_token {
                 Token::Pool(label) => self.parse_pool(&mut context, &label, &mut go_active),
                 Token::Lane(label) => self.parse_lane(&mut context, &label, &mut go_active),
-                Token::Go => { self.parse_go(&mut graph, &mut context, &mut go_from_map, &mut go_to_map, &mut go_active)?; continue; },
-                Token::EventStart(label) => self.parse_event(&mut graph, &mut context, BpmnEvent::Start(label.clone()))?,
-                Token::EventMiddle(label) => self.parse_event(&mut graph, &mut context, BpmnEvent::Middle(label.clone()))?,
-                Token::EventEnd(label) => self.parse_event(&mut graph, &mut context, BpmnEvent::End(label.clone()))?,
-                Token::ActivityTask(label) => self.parse_task(&mut graph, &mut context, BpmnEvent::ActivityTask(label.clone()))?,
+                Token::Go => { self.parse_go(&mut graph, context.last_node_id, &mut go_from_map, &mut go_to_map, &mut go_active)?; continue; },
+                Token::EventStart(label) => self.parse_common(&mut graph, &mut context, BpmnEvent::Start(label.clone()))?,
+                Token::EventMiddle(label) => self.parse_common(&mut graph, &mut context, BpmnEvent::Middle(label.clone()))?,
+                Token::EventEnd(label) => self.parse_common(&mut graph, &mut context, BpmnEvent::End(label.clone()))?,
+                Token::ActivityTask(label) => self.parse_common(&mut graph, &mut context, BpmnEvent::ActivityTask(label.clone()))?,
                 Token::GatewayExclusive => { self.parse_gateway(&mut graph, &mut context, BpmnEvent::GatewayExclusive, &mut branching)?; continue; },
                 Token::Label(label) => self.parse_label(&mut graph, &mut context, &mut branching, &label.clone(), &mut go_from_map, &mut go_to_map, &mut go_active)?,
                 Token::Error(message) => return Err(message.clone()),
@@ -160,7 +162,8 @@ impl<'a> Parser<'a> {
 
     /// Parse a gateway
     fn parse_gateway(
-        &mut self, graph: &mut Graph, 
+        &mut self, 
+        graph: &mut Graph, 
         context: &mut ParseContext, 
         event: BpmnEvent, 
         branching: &mut ParseBranching
@@ -168,21 +171,34 @@ impl<'a> Parser<'a> {
         // Assign a unique node ID to this gateway
         let node_id = graph.add_node_noid(event, context.current_pool.clone(), context.current_lane.clone());
 
+        // Call the common gateway parsing logic
+        return self.parse_gateway_common(graph, context, node_id, branching, false)
+    }
+    
+    /// Common logic for parsing gateways (branch or join)
+    fn parse_gateway_common(
+        &mut self, 
+        graph: &mut Graph, 
+        context: &mut ParseContext, 
+        node_id: usize, 
+        branching: &mut ParseBranching,
+        inside_label: bool
+    ) -> Result<(), String> {
         // Save the current line and error message in case of an error
         let line = self.lexer.line.clone();
         let error_message = self.lexer.highlight_error();
 
-        // Check if this gateway is a branching gateway or a join gateway
         self.advance();
+        
+        // Handle Branch or Join for the gateway
         match &self.current_token {
-            Token::Branch(_, _) => self.handle_gateway_branching(graph, context, node_id, branching)?,
-            Token::JoinLabel(_) => self.handle_gateway_join(context, node_id, branching)?,
-            Token::Error(message) => return Err(message.clone()),
+            Token::Branch(_, _) => self.handle_gateway_branching(graph, context, node_id, branching, inside_label)?,
+            Token::JoinLabel(_) => self.handle_gateway_join(context, node_id, branching, inside_label)?,
+            Token::Error(ref message) => return Err(message.clone()),
             _ => return Err(format!(
-                "Expected a Branch or Join after 'X' token at line {:?}\n{}",
-                line, error_message
-            )),
+                "Expected Branch or Join after 'X' token at line {:?} \n{}", line, error_message)),
         }
+
         Ok(())
     }
 
@@ -193,8 +209,11 @@ impl<'a> Parser<'a> {
         context: &mut ParseContext,
         node_id: usize,
         branching: &mut ParseBranching,
+        inside_label: bool
     ) -> Result<(), String> {
-        self.connect_nodes(graph, context, node_id);
+        if !inside_label {
+            self.connect_nodes(graph, context, node_id);
+        }
         while let Token::Branch(label, text) = &self.current_token {
             let branch_text = if text.is_empty() { None } else { Some(text.clone()) };
             branching
@@ -213,8 +232,11 @@ impl<'a> Parser<'a> {
         context: &mut ParseContext,
         node_id: usize,
         branching: &mut ParseBranching,
+        inside_label: bool
     ) -> Result<(), String> {
-        context.last_node_id = Some(node_id);
+        if !inside_label {
+            context.last_node_id = Some(node_id);
+        }
         while let Token::JoinLabel(label) = &self.current_token {
             branching
                 .gateway_end_map
@@ -261,21 +283,12 @@ impl<'a> Parser<'a> {
                     events.push(self.create_event_node(graph, context, BpmnEvent::ActivityTask(label.clone()))?);
                 }
                 Token::Go => { 
-                    self.parse_go_in_label(graph, events.last_mut(), go_from_map, go_to_map, go_active)?; 
+                    let from_id = events.last().map(|event| event.1);
+                    self.parse_go(graph, from_id, go_from_map, go_to_map, go_active)?; 
                     continue; 
                 },
                 Token::GatewayExclusive => {
-                    // Assign a unique node ID to this gateway
-                    let gateway_id = graph.next_node_id();
-                    context.last_node_id = Some(gateway_id);
-
-                    events.push((BpmnEvent::GatewayExclusive, gateway_id, context.current_pool.clone(), context.current_lane.clone()));
-
-                    // Store the gateway_id and parse branches without advancing
-                    let deferred_parse_gateway = self.deferred_parse_gateway(branching, gateway_id);
-                    if deferred_parse_gateway.is_err() {
-                        return deferred_parse_gateway;
-                    }
+                    self.handle_gateway_in_label(graph, context, branching, &mut events)?;
                     continue;
                 },
                 Token::Error(message) => return Err(message.clone()),
@@ -285,9 +298,18 @@ impl<'a> Parser<'a> {
         }
         branching.label_map.insert(label.to_string(), events);
         if let Token::Join(exit_label, text) = &self.current_token {
-            branching.label_end_map.insert(label.to_string(), (exit_label.clone(), if text.is_empty() { None } else { Some(text.clone()) }));
+            branching.label_end_map.insert(
+                label.to_string(),
+                (
+                    exit_label.clone(), 
+                    if text.is_empty() { None } else { Some(text.clone()) }
+                )
+            );
         } else {
-            return Err(format!("Expected a join label after branch label! Current token: {:?}", self.current_token));
+            return Err(format!(
+                "Expected a join label after branch label! Current token: {:?}", 
+                self.current_token
+            ));
         }
         *go_active = false;
         Ok(())
@@ -309,7 +331,8 @@ impl<'a> Parser<'a> {
         ))
     }    
 
-    fn handle_label_gateway(
+    /// Handle a gateway inside a branch
+    fn handle_gateway_in_label(
         &mut self,
         graph: &mut Graph,
         context: &mut ParseContext,
@@ -328,102 +351,7 @@ impl<'a> Parser<'a> {
         ));
     
         // Store the gateway_id and parse branches without advancing
-        self.deferred_parse_gateway(branching, gateway_id)?;
-        Ok(())
-    }
-    
-
-    fn parse_go_in_label(
-        &mut self, graph: &mut Graph, 
-        event: Option<&mut (BpmnEvent, usize, Option<String>, Option<String>)>, 
-        go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>, 
-        go_to_map: &mut HashMap<String, Vec<usize>>,
-        go_active: &mut bool
-    ) -> Result<(), String> {
-        // Save the current line and error message in case of an error
-        let line = self.lexer.line.clone();
-        let error_message = self.lexer.highlight_error();
-
-        self.advance();
-        // Check if this go is a branching go or a join go
-        if let Token::Branch(_, _) = self.current_token {
-            *go_active = true;
-            if let Some(event) = event {
-                // Loop through all branches and store the labels and texts
-                while let Token::Branch(label, text) = &self.current_token {
-                    go_from_map.entry(event.1).or_insert(vec![]).push((label.clone(), if text.is_empty() { None } else { Some(text.clone()) }));
-                    self.advance();
-                }
-            } else {
-                return Err(format!(
-                    "Expected a node before 'G' token at line {}! \n{}",
-                    self.lexer.line, self.lexer.highlight_error()
-                ));                
-            }
-        } else if let Token::JoinLabel(_) = self.current_token {
-            *go_active = false;
-
-            // Check that there is a node after the 'G' token
-            let next_token = self.peek();
-            if self.is_token_a_node(next_token) {
-                return Err(format!(
-                    "A label cannot end with an outgoing 'G' token at line {:?}\n{}",
-                    self.lexer.line, self.lexer.highlight_error()
-                ));
-            }
-
-            // Loop through all join labels and store the node IDs
-            let next_node_id = graph.last_node_id + 1;
-            while let Token::JoinLabel(label) = &self.current_token {
-                go_to_map.entry(label.clone()).or_insert(vec![]).push(next_node_id);
-                self.advance();
-            }
-        } else if let Token::Error(ref message) = self.current_token {
-            return Err(message.clone());
-        } else {
-            return Err(format!("Waited for a Join or a Go after 'G' token at line {:?} \n{}", line, error_message));
-        }
-        self.check_go_active_error(*go_active)?;        
-        if *go_active && matches!(self.current_token, Token::Join(_, _)) {
-            return Err(format!(
-                "A label cannot end with an outgoing 'G' token at line {:?}\n{}",
-                self.lexer.line, self.lexer.highlight_error()
-            ));
-        }
-        Ok(())
-    }
-
-    /// Parse a gateway inside a branch
-    fn deferred_parse_gateway(&mut self, branching: &mut ParseBranching, gateway_id: usize) -> Result<(), String> {
-        // Save the current line and error message in case of an error
-        let line = self.lexer.line.clone();
-        let error_message = self.lexer.highlight_error();
-
-        self.advance();
-        
-        // Check if this gateway is a branching gateway or a join gateway
-        if let Token::Branch(_, _) = self.current_token {
-            // Store the node_id and corresponding branches to a map
-            while let Token::Branch(branch_label, text) = &self.current_token {
-                branching.gateway_map.entry(gateway_id)
-                    .or_insert(vec![])
-                    .push((branch_label.clone(), if text.is_empty() { None } else { Some(text.clone()) }));
-                self.advance();
-            }
-        } else if let Token::JoinLabel(_) = self.current_token {
-            // Store the node_id and corresponding join labels to a map
-            while let Token::JoinLabel(join_label) = &self.current_token {
-                branching.gateway_end_map.entry(gateway_id)
-                    .or_insert(vec![])
-                    .push(join_label.clone());
-                self.advance();
-            }
-        } else if let Token::Error(ref message) = self.current_token {
-            return Err(message.clone());
-        } else {
-            return Err(format!("Waited for a Branch or a Join after 'X' token at line {:?} \n{}", line, error_message));
-        }
-        Ok(())
+        return self.parse_gateway_common(graph, context, gateway_id, branching, true);
     }
 
     /// Connect two nodes with an edge if needed
@@ -442,26 +370,15 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    /// Parse an event
-    fn parse_event(&mut self, graph: &mut Graph, context: &mut ParseContext, event: BpmnEvent) -> Result<(), String> {
-        self.parse_common(graph, context, event)
-    }
-
-    /// Parse a task
-    fn parse_task(&mut self, graph: &mut Graph, context: &mut ParseContext, event: BpmnEvent) -> Result<(), String> {
-        self.parse_common(graph, context, event)
-    }
-
     /// Parse a go
     fn parse_go(
         &mut self, 
         graph: &mut Graph, 
-        context: &mut ParseContext, 
+        from_id: Option<usize>,
         go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>, 
         go_to_map: &mut HashMap<String, Vec<usize>>, 
         go_active: &mut bool
     ) -> Result<(), String> {
-
         // Save the current line and error message in case of an error
         let line = self.lexer.line.clone();
         let error_message = self.lexer.highlight_error();
@@ -471,7 +388,7 @@ impl<'a> Parser<'a> {
         match &self.current_token {
             Token::Branch(_, _) => {
                 *go_active = true;
-                self.handle_go_from(context, go_from_map)?;
+                self.handle_go_from(from_id, go_from_map)?;
             }
             Token::JoinLabel(_) => {
                 *go_active = false;
@@ -491,11 +408,11 @@ impl<'a> Parser<'a> {
 
     fn handle_go_from(
         &mut self,
-        context: &mut ParseContext,
+        from_id: Option<usize>,
         go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>,
     ) -> Result<(), String> {
         while let Token::Branch(label, text) = &self.current_token {
-            let last_node_id = context.last_node_id.ok_or_else(|| {
+            let last_node_id = from_id.ok_or_else(|| {
                 format!(
                     "Expected a node before 'G' token at line {}!\n{}",
                     self.lexer.line,
@@ -512,20 +429,15 @@ impl<'a> Parser<'a> {
         Ok(())
     }
     
+    /// Handle parsing for a join 'Go' token
     fn handle_go_to(
         &mut self,
         next_node_id: usize,
         go_to_map: &mut HashMap<String, Vec<usize>>,
     ) -> Result<(), String> {    
         // Check that a valid node type follows
-        if !matches!(
-            self.peek(),
-            Token::EventStart(_)
-                | Token::EventMiddle(_)
-                | Token::EventEnd(_)
-                | Token::ActivityTask(_)
-                | Token::GatewayExclusive
-        ) {
+        let next_token = self.peek();
+        if !self.is_token_a_node(next_token) {
             return Err(format!(
                 "Cannot end with an outgoing 'G' token at line {} \n{}",
                 self.lexer.line,
@@ -533,8 +445,12 @@ impl<'a> Parser<'a> {
             ));
         }
     
+        // Loop through all join labels and store the node IDs
         while let Token::JoinLabel(label) = &self.current_token {
-            go_to_map.entry(label.clone()).or_insert_with(Vec::new).push(next_node_id);
+            go_to_map.entry(
+                label.clone())
+                .or_insert_with(Vec::new)
+                .push(next_node_id);
             self.advance();
         }
     
