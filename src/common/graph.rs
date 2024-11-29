@@ -4,6 +4,7 @@ use crate::common::edge::Edge;
 use crate::common::bpmn_event::BpmnEvent;
 
 /// Represents a graph consisting of nodes and edges.
+#[derive(Clone)]
 pub struct Graph {
     pub nodes: Vec<Node>,  // Nodes
     pub edges: Vec<Edge>,  // Edges
