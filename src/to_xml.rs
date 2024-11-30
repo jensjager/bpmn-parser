@@ -76,7 +76,7 @@ exporterVersion="5.17.0">
                 }
 
                 // Activities
-                BpmnEvent::ActivityTask(label) => {
+                BpmnEvent::Middle(label) | BpmnEvent::ActivityTask(label) => {
                     bpmn.push_str(&format!(
                         r#"<bpmn:task id="Activity_{}" name="{}">
     <bpmn:incoming>Flow_{}</bpmn:incoming>
@@ -556,7 +556,7 @@ fn get_node_bpmn_id(node: &Node) -> String {
             BpmnEvent::EndTerminateEvent(_) => format!("EndEvent_{}", node.id),
             BpmnEvent::EndEscalationEvent(_) => format!("EndEvent_{}", node.id),
             BpmnEvent::EndCompensationEvent(_) => format!("EndEvent_{}", node.id),
-            BpmnEvent::ActivityTask(_) => format!("Activity_{}", node.id),
+            BpmnEvent::Middle(_) | BpmnEvent::ActivityTask(_) => format!("Activity_{}", node.id),
             BpmnEvent::ActivitySubprocess(_) => format!("SubProcess_{}", node.id),
             BpmnEvent::ActivityCallActivity(_) => format!("CallActivity_{}", node.id),
             BpmnEvent::ActivityEventSubprocess(_) => format!("EventSubProcess_{}", node.id),
