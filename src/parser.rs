@@ -101,7 +101,7 @@ impl<'a> Parser<'a> {
         // Parse the input
         while self.context.current_token != Token::Eof {
             // Check if a Go is active and if it's valid
-            if go_active && self.is_token_a_node(self.context.current_token.clone()) {
+            if go_active && self.is_token_a_node(&self.context.current_token) {
                 return Err(ParseError::DefineNodesAfterGoError(self.lexer.line, self.lexer.highlight_error()));
             }
             // Match the current token and parse accordingly
@@ -115,7 +115,7 @@ impl<'a> Parser<'a> {
                 Token::EventEnd(label) => self.parse_common(BpmnEvent::End(label)),
                 Token::ActivityTask(label) => self.parse_common(BpmnEvent::ActivityTask(label)),
                 Token::GatewayExclusive => { self.parse_gateway(BpmnEvent::GatewayExclusive, &mut branching)?; continue; },
-                Token::Label(label) => self.parse_label(&mut branching, &label, &mut go_from_map, &mut go_to_map, &mut go_active)?,
+                Token::Label(label) => self.parse_label(&mut branching, &label, &mut go_from_map, &mut go_to_map)?,
                 _ => {
                     return Err(ParseError::UnexpectedToken(
                         String::new(),
@@ -123,7 +123,8 @@ impl<'a> Parser<'a> {
                         self.lexer.line,
                         self.lexer.highlight_error()
                     ));
-                }            }
+                }
+            }
             self.advance()?;
         }
 
@@ -291,8 +292,8 @@ impl<'a> Parser<'a> {
         label: &str, 
         go_from_map: &mut HashMap<usize, Vec<(String, Option<String>)>>, 
         go_to_map: &mut HashMap<String, Vec<usize>>, 
-        go_active: &mut bool
     ) -> Result<(), ParseError>  {
+        let mut go_active_in_label = false;
         // Save the current line and error message in case of an error
         let start_line = self.lexer.line;
         let highlighted_line = self.lexer.highlight_error();
@@ -303,11 +304,15 @@ impl<'a> Parser<'a> {
         // Parse all events until a join label is found
         self.advance()?;
         while !matches!(self.context.current_token, Token::Join(_,_)) && !matches!(self.context.current_token, Token::Eof) {
+            // Check if a Go is active and if it's valid
             let current_token = self.context.current_token.clone();
+            if go_active_in_label && self.is_token_a_node(&current_token) {
+                return Err(ParseError::DefineNodesAfterGoError(self.lexer.line, self.lexer.highlight_error()));
+            }
             match &current_token {
                 // If the current token is a label, parse it recursively
                 Token::Label(inner_label) => {
-                    self.parse_label(branching, &inner_label, go_from_map, go_to_map, go_active)?;
+                    self.parse_label(branching, &inner_label, go_from_map, go_to_map)?;
                 }
                 Token::EventStart(label) => {
                     events.push(self.create_event_node(BpmnEvent::Start(label.clone()))?);
@@ -323,7 +328,7 @@ impl<'a> Parser<'a> {
                 }
                 Token::Go => { 
                     let from_id = events.last().map(|event| event.1);
-                    self.parse_go(from_id, go_from_map, go_to_map, go_active)?; 
+                    self.parse_go(from_id, go_from_map, go_to_map, &mut go_active_in_label)?; 
                     continue; 
                 },
                 Token::GatewayExclusive => {
@@ -355,7 +360,7 @@ impl<'a> Parser<'a> {
                 highlighted_line
             ));
         }
-        *go_active = false;
+        // *go_active = false;
         Ok(())
     }
 
@@ -473,7 +478,7 @@ impl<'a> Parser<'a> {
     ) -> Result<(), ParseError> {    
         // Check that a valid node type follows
         let next_token = self.peek().unwrap();
-        if !self.is_token_a_node(next_token) {
+        if !self.is_token_a_node(&next_token) {
             return Err(ParseError::GoToError(
                 self.lexer.line,
                 self.lexer.highlight_error()
@@ -492,7 +497,7 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn is_token_a_node(&self, token: Token) -> bool {
+    fn is_token_a_node(&self, token: &Token) -> bool {
         matches!(
             token,
             Token::EventStart(_)    | 
