@@ -16,6 +16,7 @@ struct ParseBranching {
     label_end_map: HashMap<String, (String, Option<String>)>, // Remember the join label for each branch label <label name, (join label name, optional text)>
     gateway_map: HashMap<usize, Vec<(String, Option<String>)>>, // Remember the branches for each gateway <node id, (label, optional text)>
     gateway_end_map: HashMap<usize, Vec<String>>, // Remember the join labels for each gateway <node id, <join label names>>
+    gateway_types: HashMap<usize, (Token, usize, usize)>, // Remember the type of each gateway <node id, (event, line, column)>, used for error checking
 }
 
 #[derive(Debug)]
@@ -24,10 +25,13 @@ pub enum ParseError {
     ExpectedJoinLabelError(String, usize, String), // Error when a join label is expected
     LexerError(LexerError),        // Propagate lexer errors
     BranchingError(Token, usize, String),        // Errors related to branching
+    GatewayMatchingError((usize, usize), String),        // Error when a gateway does not match
+    GatewayJoinMissingError(usize, String),      // Error when a join gateway is missings
     UnexpectedTokenAfterGoError(Token, usize, String),   // Errors related to Go tokens
     DefineNodesAfterGoError(usize, String),               // Errors related to Go nodes
     GoFromError(usize, String), // Error when a node is expected before a 'Go' token
     GoToError(usize, String), // Error when a 'Go' token has no node to join
+    GenericError(String), // Generic error
 }
 
 impl std::fmt::Display for ParseError {
@@ -37,10 +41,13 @@ impl std::fmt::Display for ParseError {
             ParseError::ExpectedJoinLabelError(label, line, highlight) => write!(f, "Label must end with a 'J' token! Add it to label '{}' at {}\n{}", label, line, highlight),
             ParseError::LexerError(err) => write!(f, "{}", err),
             ParseError::BranchingError(token, line, highlight) => write!(f, "Unexpected token {:?} after 'X' token at line {}!\nDid you mean to do 'X ->' or 'X <-'?\n{}", token, line, highlight),
+            ParseError::GatewayMatchingError(lines, highlight) => write!(f, "Gateways do not match at lines {} and {}\n{}", lines.0, lines.1, highlight),
+            ParseError::GatewayJoinMissingError(line, highlight) => write!(f, "Join gateway missing for label at line {}\n{}", line, highlight),
             ParseError::UnexpectedTokenAfterGoError(token, line, highlight) => write!(f, "Unexpected token {:?} after 'G' token at line {}!\nDid you mean to do 'G ->' or 'G <-'?\n{}", token, line, highlight),
             ParseError::DefineNodesAfterGoError(line, highlight) => write!(f, "Incoming 'G' token must be used before defining nodes at line {}\n{}", line, highlight),
             ParseError::GoFromError(line, highlight) => write!(f, "Node must be defined before outgoing 'G' token at line {}\n{}", line, highlight),
             ParseError::GoToError(line, highlight) => write!(f, "Node must be defined after incoming 'G' token at line {}\n{}", line, highlight),
+            ParseError::GenericError(err) => write!(f, "{}", err),
         }
     }
 }
@@ -91,6 +98,7 @@ impl<'a> Parser<'a> {
             label_end_map: HashMap::new(), // (label, (join label, optional text))
             gateway_map: HashMap::new(), // (node id, labels)
             gateway_end_map: HashMap::new(), // (node id, <join labels>)
+            gateway_types: HashMap::new(), // (node id, event)
         };
 
         // Initialize the go structures
@@ -115,6 +123,9 @@ impl<'a> Parser<'a> {
                 Token::EventEnd(label) => self.parse_common(BpmnEvent::End(label)),
                 Token::ActivityTask(label) => self.parse_common(BpmnEvent::ActivityTask(label)),
                 Token::GatewayExclusive => { self.parse_gateway(BpmnEvent::GatewayExclusive, &mut branching)?; continue; },
+                Token::GatewayParallel => { self.parse_gateway(BpmnEvent::GatewayParallel, &mut branching)?; continue; },
+                Token::GatewayInclusive => { self.parse_gateway(BpmnEvent::GatewayInclusive, &mut branching)?; continue; },
+                Token::GatewayEvent => { self.parse_gateway(BpmnEvent::GatewayEvent, &mut branching)?; continue; },
                 Token::Label(label) => self.parse_label(&mut branching, &label, &mut go_from_map, &mut go_to_map)?,
                 _ => {
                     return Err(ParseError::UnexpectedToken(
@@ -128,29 +139,38 @@ impl<'a> Parser<'a> {
             self.advance()?;
         }
 
+        // Loop through all defined gateways
         for (gateway_from_id, labels) in branching.gateway_map {
+            // Loop through all branches in the gateway
             for (label, text) in labels {
-                let events = branching.label_map.get(&label).expect("Label not found in label_map");
+                // Check if the label defined in the gateway exists in the label_map
+                let events = branching.label_map.get(&label).expect("Label not found!");
+                // Use the first event to create the edge to the gateway node
                 let first_event = events.get(0).expect("No events found for label");
                 let node_id = self.graph.add_node(first_event.0.clone(), first_event.1.clone(), first_event.2.clone(), first_event.3.clone());
                 let edge = Edge::new(gateway_from_id, node_id, text.clone());
                 self.graph.add_edge(edge);
                 self.context.last_node_id = Some(node_id);
+                // Loop through all events in the label
                 for event in &events[1..] {
                     let node_id = self.graph.add_node(event.0.clone(), event.1.clone(), event.2.clone(), event.3.clone());
-                    if let BpmnEvent::GatewayExclusive = event.0 {
-                        // Check if this gateway is in `gateway_end_map` (indicating a join gateway)
+                    // Check if this event is a gateway, we don't want to connect gateways to gateways
+                    if self.is_event_a_gateway(&event.0) {
+                        // Check if this gateway joins anywhere
                         if branching.gateway_end_map.contains_key(&node_id) {
                             // Skip adding an edge to join gateways
                             self.context.last_node_id = Some(node_id);
                             continue;
                         }
                     }
+                    // Connect the current node to the previous node
                     let edge = Edge::new(self.context.last_node_id.unwrap(), node_id, None);
                     self.graph.add_edge(edge);
                     self.context.last_node_id = Some(node_id);
                 }
+                // Get the join label for the label
                 let end_label = branching.label_end_map.get(&label);
+                // Check if any gateways join this label
                 let end_join_ids: Vec<usize> = branching.gateway_end_map.iter()
                     .filter_map(|(key, labels)| {
                         if labels.contains(&end_label.unwrap().0) {
@@ -159,7 +179,28 @@ impl<'a> Parser<'a> {
                             None
                         }
                     }).collect();
+                // Connect the last node in the label to the joining gateways
                 for end_join_id in end_join_ids {
+                    // Check if the gateway types match
+                    if let (Some((type_from, line_from, column_from)), Some((type_to, line_to, column_to))) = (
+                        branching.gateway_types.get(&gateway_from_id),
+                        branching.gateway_types.get(&end_join_id),
+                    ) {
+                        if type_from != type_to {
+                            let error_from = self.lexer.highlight_line_error(*line_from, *column_from);
+                            let error_to = self.lexer.highlight_line_error(*line_to, *column_to);
+                            let error = error_from +"\n"+ &error_to;
+                            return Err(ParseError::GatewayMatchingError(
+                                (*line_from, *line_to),
+                                error,
+                            ));
+                        }
+                    } else {
+                        return Err(ParseError::GenericError(format!(
+                            "One or both gateway types are missing for IDs: {} and {}",
+                            gateway_from_id, end_join_id
+                        )));
+                    }
                     let edge = Edge::new(self.context.last_node_id.unwrap(), end_join_id, end_label.unwrap().1.clone());
                     self.graph.add_edge(edge);
                 }
@@ -225,10 +266,10 @@ impl<'a> Parser<'a> {
         // Save the current line and error message in case of an error
         let line = self.lexer.line.clone();
         let highlighted_line = self.lexer.highlight_error();
+        branching.gateway_types.insert(node_id, (self.context.current_token.clone(), line, self.lexer.column - 2));
 
-        self.advance()?;
-        
         // Handle Branch or Join for the gateway
+        self.advance()?;
         match &self.context.current_token {
             Token::Branch(_, _) => self.handle_gateway_branching(node_id, branching, inside_label)?,
             Token::JoinLabel(_) => self.handle_gateway_join(node_id, branching, inside_label)?,
@@ -269,7 +310,7 @@ impl<'a> Parser<'a> {
         &mut self,
         node_id: usize,
         branching: &mut ParseBranching,
-        inside_label: bool
+        inside_label: bool,
     ) -> Result<(), ParseError> {
         if !inside_label {
             self.context.last_node_id = Some(node_id);
@@ -335,6 +376,18 @@ impl<'a> Parser<'a> {
                     self.handle_gateway_in_label(branching, &mut events)?;
                     continue;
                 },
+                Token::GatewayParallel => {
+                    self.handle_gateway_in_label(branching, &mut events)?;
+                    continue;
+                },
+                Token::GatewayInclusive => {
+                    self.handle_gateway_in_label(branching, &mut events)?;
+                    continue;
+                },
+                Token::GatewayEvent => {
+                    self.handle_gateway_in_label(branching, &mut events)?;
+                    continue;
+                },
                 _ => return Err(ParseError::UnexpectedToken(
                     format!("in label '{}' ", label),
                     self.context.current_token.clone(),
@@ -360,7 +413,6 @@ impl<'a> Parser<'a> {
                 highlighted_line
             ));
         }
-        // *go_active = false;
         Ok(())
     }
 
@@ -505,6 +557,16 @@ impl<'a> Parser<'a> {
             Token::EventEnd(_)      | 
             Token::ActivityTask(_)  | 
             Token::GatewayExclusive
+        )
+    }
+
+    fn is_event_a_gateway(&self, token: &BpmnEvent) -> bool {
+        matches!(
+            token,
+            BpmnEvent::GatewayExclusive | 
+            BpmnEvent::GatewayParallel  | 
+            BpmnEvent::GatewayInclusive | 
+            BpmnEvent::GatewayEvent
         )
     }
 }

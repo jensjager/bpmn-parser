@@ -9,6 +9,9 @@ pub enum Token {
     EventEnd(String),             // `.` for end event
     ActivityTask(String),         // `-` for task activity
     GatewayExclusive,             // `X` for gateway
+    GatewayParallel,              // `+` for parallel gateway
+    GatewayInclusive,             // `O` for inclusive gateway
+    GatewayEvent,                 // `*` for complex gateway
     Go,                           // `G` for go 
     Join(String, String),         // `J` for join event
     Label(String),                // `:` for branch label
@@ -43,7 +46,7 @@ pub struct Lexer<'a> {
     position: usize,                // Current position in the input
     current_char: Option<char>,     // Current character being examined
     pub line: usize,                // Current line number
-    column: usize,                  // Current column number
+    pub column: usize,                  // Current column number
     pub seen_start: bool,               // State flag for distinguishing event start/middle
 }
 
@@ -169,6 +172,18 @@ impl<'a> Lexer<'a> {
                 self.advance(); // Skip 'X'
                 Ok(Token::GatewayExclusive)
             },
+            Some('+') => {
+                self.advance(); // Skip '+'
+                Ok(Token::GatewayParallel)
+            },
+            Some('O') => {
+                self.advance(); // Skip 'O'
+                Ok(Token::GatewayInclusive)
+            },
+            Some('*') => {
+                self.advance(); // Skip '*'
+                Ok(Token::GatewayEvent)
+            },
             Some('G') => {
                 self.advance(); // Skip 'G'
                 Ok(Token::Go)
@@ -247,5 +262,17 @@ impl<'a> Lexer<'a> {
         let highlight = " ".repeat(self.column - 2) + "^";
     
         format!("{}\n{}", current_line, highlight)
+    }
+
+    pub fn highlight_line_error(&self, line_nr: usize, column: usize) -> String {
+        // Split input into lines
+        let lines: Vec<&str> = self.input.split('\n').collect();
+    
+        let line = lines[line_nr - 1];
+    
+        // Create the error highlight
+        let highlight = " ".repeat(column) + "^";
+    
+        format!("{}\n{}", line, highlight)
     }
 }

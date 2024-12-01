@@ -97,6 +97,12 @@ pub fn run_parser(input: &str) -> String {
                                 BpmnEvent::GatewayExclusive => {
                                     println!("  Gateway Exclusive Event (ID: {})", node.id);
                                 }
+                                BpmnEvent::GatewayParallel => {
+                                    println!("  Gateway Parallel Event (ID: {})", node.id);
+                                }
+                                BpmnEvent::GatewayEvent => {
+                                    println!("  Gateway Event Event (ID: {})", node.id);
+                                }
                                 BpmnEvent::GatewayJoin(label) => {
                                     println!("  Gateway Join Event: {} (ID: {})", label, node.id);
                                 }
