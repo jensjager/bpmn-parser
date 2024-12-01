@@ -373,19 +373,19 @@ impl<'a> Parser<'a> {
                     continue; 
                 },
                 Token::GatewayExclusive => {
-                    self.handle_gateway_in_label(branching, &mut events)?;
+                    self.handle_gateway_in_label(branching, &mut events, BpmnEvent::GatewayExclusive)?;
                     continue;
                 },
                 Token::GatewayParallel => {
-                    self.handle_gateway_in_label(branching, &mut events)?;
+                    self.handle_gateway_in_label(branching, &mut events, BpmnEvent::GatewayParallel)?;
                     continue;
                 },
                 Token::GatewayInclusive => {
-                    self.handle_gateway_in_label(branching, &mut events)?;
+                    self.handle_gateway_in_label(branching, &mut events, BpmnEvent::GatewayInclusive)?;
                     continue;
                 },
                 Token::GatewayEvent => {
-                    self.handle_gateway_in_label(branching, &mut events)?;
+                    self.handle_gateway_in_label(branching, &mut events, BpmnEvent::GatewayEvent)?;
                     continue;
                 },
                 _ => return Err(ParseError::UnexpectedToken(
@@ -435,13 +435,14 @@ impl<'a> Parser<'a> {
         &mut self,
         branching: &mut ParseBranching,
         events: &mut Vec<(BpmnEvent, usize, Option<String>, Option<String>)>,
+        event: BpmnEvent
     ) -> Result<(), ParseError> {
         // Assign a unique node ID to this gateway
         let gateway_id = self.graph.next_node_id();
         self.context.last_node_id = Some(gateway_id);
         
         events.push((
-            BpmnEvent::GatewayExclusive,
+            event,
             gateway_id,
             self.context.current_pool.clone(),
             self.context.current_lane.clone(),
