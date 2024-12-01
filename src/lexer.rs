@@ -9,14 +9,35 @@ pub enum Token {
     EventEnd(String),             // `.` for end event
     ActivityTask(String),         // `-` for task activity
     GatewayExclusive,             // `X` for gateway
+    GatewayParallel,              // `+` for parallel gateway
+    GatewayInclusive,             // `O` for inclusive gateway
+    GatewayEvent,                 // `*` for complex gateway
     Go,                           // `G` for go 
     Join(String, String),         // `J` for join event
     Label(String),                // `:` for branch label
     Branch(String, String),       // `->` Branch label and text
     JoinLabel(String),            // `<-` for join gateway
     Text(String),                 // Any freeform text
-    Error(String),                // Error message
     Eof,                          // End of file/input
+}
+
+#[derive(Debug, Clone)]
+pub enum LexerError {
+    UnexpectedCharacter(char, usize, usize, String), // character, line, column, highlight
+    UnterminatedString(usize, usize, String),        // line, column, highlight
+}
+
+impl std::fmt::Display for LexerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LexerError::UnexpectedCharacter(c, line, col, highlight) => {
+                write!(f, "Unexpected character '{}' at line {}, column {}\n{}", c, line, col, highlight)
+            }
+            LexerError::UnterminatedString(line, col, highlight) => {
+                write!(f, "Unterminated quoted string starting at line {}, column {}\n{}", line, col, highlight)
+            }
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -25,7 +46,7 @@ pub struct Lexer<'a> {
     position: usize,                // Current position in the input
     current_char: Option<char>,     // Current character being examined
     pub line: usize,                // Current line number
-    column: usize,                  // Current column number
+    pub column: usize,                  // Current column number
     pub seen_start: bool,               // State flag for distinguishing event start/middle
 }
 
@@ -62,14 +83,14 @@ impl<'a> Lexer<'a> {
     }
 
     // Peek the next token in the input
-    pub fn peek_token(&mut self) -> Token {
+    pub fn peek_token(&mut self) -> Result<Token, LexerError> {
         let saved_position = self.position;
         let saved_char = self.current_char;
         let saved_line = self.line;
         let saved_column = self.column;
     
         // Get the next token
-        let token = self.next_token().unwrap_or(Token::Eof);
+        let token = self.next_token();
     
         // Restore lexer state
         self.position = saved_position;
@@ -81,7 +102,7 @@ impl<'a> Lexer<'a> {
     }
 
     // Get the next token from the input
-    pub fn next_token(&mut self) -> Option<Token> {
+    pub fn next_token(&mut self) -> Result<Token, LexerError> {
         self.skip_whitespace(); // Skip any unnecessary whitespace
 
         match self.current_char {
@@ -94,10 +115,7 @@ impl<'a> Lexer<'a> {
                     self.advance(); // Skip the newline
                     self.next_token()
                 } else {
-                    let error = self.highlight_error();
-                    Some(Token::Error(format!(
-                        "Syntax error: Single '/' is not allowed at line {}; did you mean '//' for comments?\n{}\n"
-                        , self.line, error)))
+                    Err(LexerError::UnexpectedCharacter('/', self.line, self.column, self.highlight_error()))
                 }
             },
             Some('=') => {
@@ -105,10 +123,10 @@ impl<'a> Lexer<'a> {
                 if self.current_char == Some('=') {
                     self.advance(); // Skip second '=' for lanes
                     let lane_name = self.read_text();
-                    Some(Token::Lane(lane_name))
+                    Ok(Token::Lane(lane_name))
                 } else {
                     let pool_name = self.read_text();
-                    Some(Token::Pool(pool_name))
+                    Ok(Token::Pool(pool_name))
                 }
             },
             Some('#') => {
@@ -120,7 +138,7 @@ impl<'a> Lexer<'a> {
                 } else {
                     Token::EventMiddle(text) // Subsequent '-' are Middle events
                 };
-                Some(event_type)
+                Ok(event_type)
             },
             Some('-') => {
                 self.advance(); // Skip '-'
@@ -128,55 +146,64 @@ impl<'a> Lexer<'a> {
                     self.advance(); // Skip '>'
                     let label: String = self.read_text();
                     let text = self.read_quoted_text();
-                    Some(Token::Branch(label, text))
+                    Ok(Token::Branch(label, text?))
                 } else {
                     let text: String = self.read_text(); // Read the text after the event symbol
-                    Some(Token::ActivityTask(text))
+                    Ok(Token::ActivityTask(text))
                 }
             },
             Some('.') => {
                 self.advance(); // Skip '.'
                 let text: String = self.read_text(); // Read the text after the event symbol
                 self.seen_start = false; // Reset the state for the next sequence of events
-                Some(Token::EventEnd(text))
+                Ok(Token::EventEnd(text))
             },
             Some('<') => {
                 self.advance(); // Skip '<'
                 if self.current_char == Some('-') {
                     self.advance(); // Skip '-'
                     let label: String = self.read_text();
-                    Some(Token::JoinLabel(label))
+                    Ok(Token::JoinLabel(label))
                 } else {
-                    let error = self.highlight_error();
-                    Some(Token::Error(format!(
-                        "Syntax error: Expected '-' after '<' at line {}. Did you mean '<-' for a join?\n{}\n",
-                        self.line, error)))
+                    Err(LexerError::UnexpectedCharacter(self.current_char.unwrap_or('\0'), self.line, self.column, self.highlight_error()))
                 }
             },
             Some('X') => {
                 self.advance(); // Skip 'X'
-                Some(Token::GatewayExclusive)
+                Ok(Token::GatewayExclusive)
+            },
+            Some('+') => {
+                self.advance(); // Skip '+'
+                Ok(Token::GatewayParallel)
+            },
+            Some('O') => {
+                self.advance(); // Skip 'O'
+                Ok(Token::GatewayInclusive)
+            },
+            Some('*') => {
+                self.advance(); // Skip '*'
+                Ok(Token::GatewayEvent)
             },
             Some('G') => {
                 self.advance(); // Skip 'G'
-                Some(Token::Go)
+                Ok(Token::Go)
             },
             Some('J') => {
                 self.advance(); // Skip 'J'
                 let label: String = self.read_text(); // Read the text after the event symbol
                 let text = self.read_quoted_text();
-                Some(Token::Join(label, text))
+                Ok(Token::Join(label, text?))
             },
             Some(c) if !c.is_whitespace() => {
                 let mut text = self.read_text();
                 if text.ends_with(":") {
                     text.pop(); // Remove the last character
-                    Some(Token::Label(text))
+                    Ok(Token::Label(text))
                 } else {
-                    Some(Token::Text(text))
+                    Ok(Token::Text(text))
                 }
             },
-            None => Some(Token::Eof), // End of input
+            None => Ok(Token::Eof), // End of input
             _ => {
                 self.advance();
                 self.next_token()
@@ -210,14 +237,18 @@ impl<'a> Lexer<'a> {
         text.trim().to_string() // Trim any leading/trailing spaces
     }
 
-    fn read_quoted_text(&mut self) -> String {
+    fn read_quoted_text(&mut self) -> Result<String, LexerError> {
         if self.current_char == Some('"') {
             self.advance(); // Skip the opening quote
             let text: String = self.read_text();
-            self.advance(); // Skip the closing quote
-            text
+            if self.current_char == Some('"') {
+                self.advance(); // Skip the closing quote
+            } else {
+                return Err(LexerError::UnterminatedString(self.line, self.column, self.highlight_error()));
+            }
+            Ok(text)
         } else {
-            String::new()
+            Ok(String::new())
         }
     }
 
@@ -231,5 +262,17 @@ impl<'a> Lexer<'a> {
         let highlight = " ".repeat(self.column - 2) + "^";
     
         format!("{}\n{}", current_line, highlight)
+    }
+
+    pub fn highlight_line_error(&self, line_nr: usize, column: usize) -> String {
+        // Split input into lines
+        let lines: Vec<&str> = self.input.split('\n').collect();
+    
+        let line = lines[line_nr - 1];
+    
+        // Create the error highlight
+        let highlight = " ".repeat(column) + "^";
+    
+        format!("{}\n{}", line, highlight)
     }
 }

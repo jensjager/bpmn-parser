@@ -1,12 +1,14 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BpmnEvent {
     Start(String),              // Start event with label
     Middle(String),             // Middle event with label
     End(String),                // End event with label
     GatewayExclusive,           // Exclusive gateway event
+    GatewayInclusive,           // Inclusive gateway event
+    GatewayParallel,            // Parallel gateway event
+    GatewayEvent,               // Event-based gateway event
     GatewayJoin(String),        // Join gateway event with label
     ActivityTask(String),       // Task with label
-    GatewayInclusive,           // Inclusive gateway event
     ActivitySubprocess(String),         // Subprocess with label
     ActivityCallActivity(String),       // Call Activity with label
     ActivityEventSubprocess(String),    // Event Subprocess with label
@@ -61,6 +63,8 @@ pub fn get_node_size(event: &BpmnEvent) -> (usize, usize) {
         // Gateways
         BpmnEvent::GatewayExclusive
         | BpmnEvent::GatewayInclusive
+        | BpmnEvent::GatewayParallel
+        | BpmnEvent::GatewayEvent
         | BpmnEvent::GatewayJoin(_) => (50, 50),
 
         // Activities
