@@ -170,14 +170,17 @@ exporterVersion="5.17.0">
                     (100, 80)
                 };
 
+                let x = node.x.unwrap_or(0.0);
+                let y = node.y.unwrap_or(0.0) + node.y_offset.unwrap_or(0.0);
+
                 bpmn.push_str(&format!(
                 r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}">
                 <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
                 </bpmndi:BPMNShape>"#,
                 get_node_bpmn_id(node),
                 get_node_bpmn_id(node),
-                node.x.unwrap_or(0.0),
-                node.y.unwrap_or(0.0),
+                x,
+                y,
                 width,
                 height
                 ));
