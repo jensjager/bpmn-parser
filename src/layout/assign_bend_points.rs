@@ -1,11 +1,12 @@
 use crate::common::graph::Graph;
 use crate::common::bpmn_event::get_node_size;
-
+use crate::common::edge::Edge;
 /// Määrab servadele algus-, lõpp- ja painutuskohad.
 pub fn assign_bend_points(graph: &mut Graph) {
-    for edge in &mut graph.edges {
-        let from_node = graph.nodes.iter().find(|n| n.id == edge.from).unwrap();
-        let to_node = graph.nodes.iter().find(|n| n.id == edge.to).unwrap();
+    let mut edges = graph.take_edges();
+    for edge in &mut edges {
+        let from_node = graph.get_node_by_id(edge.from).unwrap();
+        let to_node = graph.get_node_by_id(edge.to).unwrap();
 
         let (from_x, from_y) = (from_node.x.unwrap(), from_node.y.unwrap() + from_node.y_offset.unwrap_or(0.0));
         let (to_x, to_y) = (to_node.x.unwrap(), to_node.y.unwrap() + to_node.y_offset.unwrap_or(0.0));
@@ -72,4 +73,6 @@ pub fn assign_bend_points(graph: &mut Graph) {
             .chain(vec![(edge_to_x, edge_to_y)].into_iter())
             .collect());
     }
+
+    graph.set_edges(edges);
 }

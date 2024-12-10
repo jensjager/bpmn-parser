@@ -2,56 +2,87 @@
 use crate::common::bpmn_event::BpmnEvent;
 use crate::common::edge::Edge;
 use crate::common::node::Node;
+use crate::common::pool::Pool;
 
 /// Represents a graph consisting of nodes and edges.
 pub struct Graph {
-    pub nodes: Vec<Node>,    // Nodes
+    pub pools: Vec<Pool>,    // Pools
     pub edges: Vec<Edge>,    // Edges
     pub last_node_id: usize, // Last used node ID
 }
 
 impl Graph {
-    pub fn new(nodes: Vec<Node>, edges: Vec<Edge>) -> Self {
+    pub fn new() -> Self {
         Graph {
-            nodes,
-            edges,
+            pools: Vec::new(),
+            edges: Vec::new(),
             last_node_id: 0,
         }
-    }
-
-    pub fn add_node_noid(
-        &mut self,
-        bpmn_event: BpmnEvent,
-        pool: Option<String>,
-        lane: Option<String>,
-    ) -> usize {
-        let new_node = Node::new(
-            self.last_node_id + 1,
-            None,
-            None,
-            Some(bpmn_event),
-            pool,
-            lane,
-        );
-
-        self.nodes.push(new_node);
-
-        self.last_node_id += 1;
-        self.last_node_id
     }
 
     pub fn add_node(
         &mut self,
         bpmn_event: BpmnEvent,
-        id: usize,
-        pool: Option<String>,
-        lane: Option<String>,
+        id: Option<usize>,
+        pool_node: Option<String>,
+        lane_node: Option<String>,
     ) -> usize {
-        let new_node = Node::new(id, None, None, Some(bpmn_event), pool, lane);
+        // Generate or use provided node ID
+        let node_id = id.unwrap_or_else(|| self.next_node_id());
+        
+        // Create new node
+        let node = Node::new(
+            node_id,
+            None,
+            None,
+            Some(bpmn_event),
+            pool_node.clone(),
+            lane_node.clone(),
+        );
+    
+        // Add node to appropriate pool
+        let pool_name = pool_node.unwrap_or_else(|| "default_pool".to_string());
+        if let Some(pool) = self.pools.iter_mut().find(|p| p.get_pool_name() == pool_name) {
+            pool.add_node(node);
+        } else {
+            let mut new_pool = Pool::new(pool_name);
+            new_pool.add_node(node);
+            self.pools.push(new_pool);
+        }
+    
+        node_id
+    }
 
-        self.nodes.push(new_node);
+    pub fn get_pools(&self) -> &Vec<Pool> {
+        &self.pools
+    }
 
-        id
+    pub fn get_pools_mut(&mut self) -> &mut Vec<Pool> {
+        &mut self.pools
+    }
+
+    pub fn take_pools(&mut self) -> Vec<Pool> {
+        std::mem::take(&mut self.pools)
+    }
+
+    pub fn set_pools(&mut self, pools: Vec<Pool>) {
+        self.pools = pools;
+    }
+
+    pub fn get_edges(&self) -> Vec<Edge> {
+        self.edges.clone()
+    }
+
+    pub fn get_edges_mut(&mut self) -> &mut Vec<Edge> {
+        &mut self.edges
+    }
+
+    pub fn take_edges(&mut self) -> Vec<Edge> {
+        std::mem::take(&mut self.edges)
+    }
+
+    pub fn set_edges(&mut self, edges: Vec<Edge>) {
+        self.edges = edges;
     }
 
     /// Adds an edge to the graph.
@@ -65,12 +96,38 @@ impl Graph {
         self.last_node_id // Return the new ID
     }
 
-    pub fn get_node_by_id(&mut self, node_id: usize) -> Option<&mut Node> {
-        for node in self.nodes.iter_mut() {
-            if node.id == node_id {
-                return Some(node);
+    pub fn get_node_by_id(&self, id: usize) -> Option<&Node> {
+        for pool in &self.pools {
+            for lane in pool.get_lanes() {
+                for node in lane.get_layers() {
+                    if node.id == id {
+                        return Some(node);
+                    }
+                }
             }
         }
+        println!("Node with id {} not found", id);
         None
+    }
+
+    pub fn get_nodes_by_pool_name(&self, pool_name: &str) -> Vec<&Node> {
+        self.pools.iter().flat_map(|pool| pool.get_lanes()).flat_map(|lane| lane.get_layers()).filter(|node| node.pool.as_deref() == Some(pool_name)).collect()
+    }
+
+    pub fn print_graph(&self) {
+        println!("Printing Graph");
+        for pool in &self.pools {
+            println!("Pool: {}", pool.get_pool_name());
+            for lane in pool.get_lanes() {
+                println!("  Lane: {}", lane.get_lane());
+                for node in lane.get_layers() {
+                    println!("    Node: {}", node.id);
+                }
+            }
+        }
+        println!("Printing edges");
+        for edge in &self.edges {
+            println!("  Edge: {} -> {}", edge.from, edge.to);
+        }
     }
 }

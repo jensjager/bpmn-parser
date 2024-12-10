@@ -29,9 +29,9 @@ exporterVersion="5.17.0">
 
     // Collect unique pool IDs from nodes
     let pool_ids: HashSet<String> = graph
-        .nodes
+        .pools
         .iter()
-        .filter_map(|node| node.pool.clone())
+        .map(|pool| pool.get_pool_name())
         .collect();
 
     for pool_id in &pool_ids {
@@ -51,11 +51,7 @@ exporterVersion="5.17.0">
         ));
 
         // Get nodes in this pool
-        let pool_nodes: Vec<&Node> = graph
-            .nodes
-            .iter()
-            .filter(|node| node.pool.as_deref() == Some(pool_id.as_str()))
-            .collect();
+        let pool_nodes: Vec<&Node> = graph.get_nodes_by_pool_name(pool_id);
 
         // Collect unique lane IDs within this pool
         let lane_ids: HashSet<String> = pool_nodes
@@ -120,24 +116,21 @@ exporterVersion="5.17.0">
     let mut pool_position_y = 100.0;
     let pool_height = 400.0;
 
-    for pool_id in &pool_ids {
+    for pool in graph.get_pools() {
+        let pool_id = pool.get_pool_name();
         bpmn.push_str(&format!(
             r#"<bpmndi:BPMNShape id="Participant_{}_di" bpmnElement="Participant_{}" isHorizontal="true">
     <dc:Bounds x="{:.2}" y="{:.2}" width="{:.2}" height="{:.2}" />
   </bpmndi:BPMNShape>"#,
-            pool_id,
-            pool_id,
+  pool_id,
+  pool_id,
             /* x */ 100.0,
             /* y */ pool_position_y,
-            /* width */ 1000.0,
-            /* height */ pool_height,
-        ));
+            /* width */ pool.width.unwrap_or(0.0),
+            /* height */ pool.height.unwrap_or(0.0),
+        )); 
 
-        let pool_nodes: Vec<&Node> = graph
-            .nodes
-            .iter()
-            .filter(|node| node.pool.as_deref() == Some(pool_id.as_str()))
-            .collect();
+        let pool_nodes: Vec<&Node> = graph.get_nodes_by_pool_name(&pool_id);
 
         let lane_ids: HashSet<String> = pool_nodes
             .iter()
@@ -148,7 +141,8 @@ exporterVersion="5.17.0">
         let lane_height = pool_height / lane_ids.len() as f64;
         let mut lane_position_y = pool_position_y;
 
-        for lane_id in &lane_ids {
+        for lane in pool.get_lanes() {
+            let lane_id = lane.get_lane();
             bpmn.push_str(&format!(
                 r#"<bpmndi:BPMNShape id="Lane_{}_di" bpmnElement="Lane_{}" isHorizontal="true">
     <dc:Bounds x="{:.2}" y="{:.2}" width="{:.2}" height="{:.2}" />
@@ -157,8 +151,8 @@ exporterVersion="5.17.0">
                 lane_id,
                 /* x */ 100.0,
                 /* y */ lane_position_y,
-                /* width */ 1000.0,
-                /* height */ lane_height,
+                /* width */ lane.width.unwrap_or(0.0),
+                /* height */ lane.height.unwrap_or(0.0),
             ));
             lane_position_y += lane_height;
         }
@@ -167,34 +161,32 @@ exporterVersion="5.17.0">
     }
 
     // Add BPMN shapes for flow nodes
-    for node in &graph.nodes {
-        let (width, height) = if let Some(event) = &node.event {
-            get_node_size(event)
-        } else {
-            (100, 80)
-        };
+    for pool in &graph.pools {
+        for lane in pool.get_lanes() {
+            for node in lane.get_layers() {
+                let (width, height) = if let Some(event) = &node.event {
+                    get_node_size(event)
+                } else {
+                    (100, 80)
+                };
 
-        bpmn.push_str(&format!(
-            r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}">
-      <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
-    </bpmndi:BPMNShape>"#,
-            get_node_bpmn_id(node),
-            get_node_bpmn_id(node),
-            node.x.unwrap_or(0.0),
-            node.y.unwrap_or(0.0),
-            width,
-            height
-        ));
+                bpmn.push_str(&format!(
+                r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}">
+                <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
+                </bpmndi:BPMNShape>"#,
+                get_node_bpmn_id(node),
+                get_node_bpmn_id(node),
+                node.x.unwrap_or(0.0),
+                node.y.unwrap_or(0.0),
+                width,
+                height
+                ));
+    }
+}
     }
 
     // Add BPMN edges for sequence flows
     for edge in &graph.edges {
-        let from_node = graph.nodes.iter().find(|n| n.id == edge.from).unwrap();
-        let to_node = graph.nodes.iter().find(|n| n.id == edge.to).unwrap();
-
-        let source_ref = get_node_bpmn_id(from_node);
-        let target_ref = get_node_bpmn_id(to_node);
-
         bpmn.push_str(&format!(
             r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">
     <!-- Add waypoints if available -->
@@ -377,8 +369,8 @@ fn generate_sequence_flows(
 
     for edge in &graph.edges {
         if node_ids.contains(&edge.from) && node_ids.contains(&edge.to) {
-            let from_node = graph.nodes.iter().find(|n| n.id == edge.from).unwrap();
-            let to_node = graph.nodes.iter().find(|n| n.id == edge.to).unwrap();
+            let from_node = graph.get_node_by_id(edge.from).unwrap();
+            let to_node = graph.get_node_by_id(edge.to).unwrap();
 
             let source_ref = get_node_bpmn_id(from_node);
             let target_ref = get_node_bpmn_id(to_node);

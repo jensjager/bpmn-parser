@@ -1,18 +1,18 @@
 // node.rs
-
 use crate::common::bpmn_event::BpmnEvent;
 
 #[derive(Debug, Clone)]
 pub struct Node {
     pub id: usize,
     pub event: Option<BpmnEvent>,
-    pub x: Option<f64>, // X-coordinate
-    pub y: Option<f64>, // Y-coordinate
+    pub x: Option<f64>,
+    pub y: Option<f64>,
     pub y_offset: Option<f64>,
-    pub stroke_color: Option<String>, // e.g., "red", "blue", "green"
-    pub fill_color: Option<String>,   // e.g., "red", "blue", "green"
-    pub pool: Option<String>,         // Pool context
-    pub lane: Option<String>,         // Lane context
+    pub stroke_color: Option<String>,
+    pub fill_color: Option<String>,
+    pub pool: Option<String>,
+    pub lane: Option<String>,
+    pub layer_id: Option<usize>,
     pub crosses_lanes: bool,
     pub to_node_id: Option<usize>,
 }
@@ -34,6 +34,7 @@ impl Node {
             event,
             pool,
             lane,
+            layer_id: None,
             fill_color: None,
             stroke_color: None,
             crosses_lanes: false,
@@ -45,6 +46,10 @@ impl Node {
         self.x = Some(x);
         self.y = Some(y);
         self.y_offset = Some(y_offset);
+    }
+
+    pub fn set_layer_id(&mut self, layer_id: usize) {
+        self.layer_id = Some(layer_id);
     }
 }
 
