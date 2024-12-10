@@ -113,9 +113,6 @@ exporterVersion="5.17.0">
     );
 
     // Add BPMN shapes for participants (pools)
-    let mut pool_position_y = 100.0;
-    let pool_height = 400.0;
-
     for pool in graph.get_pools() {
         let pool_id = pool.get_pool_name();
         bpmn.push_str(&format!(
@@ -124,22 +121,11 @@ exporterVersion="5.17.0">
   </bpmndi:BPMNShape>"#,
   pool_id,
   pool_id,
-            /* x */ 100.0,
-            /* y */ pool_position_y,
+            /* x */ pool.x.unwrap_or(0.0),
+            /* y */ pool.y.unwrap_or(0.0),
             /* width */ pool.width.unwrap_or(0.0),
             /* height */ pool.height.unwrap_or(0.0),
         )); 
-
-        let pool_nodes: Vec<&Node> = graph.get_nodes_by_pool_name(&pool_id);
-
-        let lane_ids: HashSet<String> = pool_nodes
-            .iter()
-            .filter_map(|node| node.lane.clone())
-            .collect();
-
-
-        let lane_height = pool_height / lane_ids.len() as f64;
-        let mut lane_position_y = pool_position_y;
 
         for lane in pool.get_lanes() {
             let lane_id = lane.get_lane();
@@ -149,16 +135,14 @@ exporterVersion="5.17.0">
   </bpmndi:BPMNShape>"#,
                 lane_id,
                 lane_id,
-                /* x */ 100.0,
-                /* y */ lane_position_y,
+                /* x */ lane.x.unwrap_or(0.0),
+                /* y */ lane.y.unwrap_or(0.0),
                 /* width */ lane.width.unwrap_or(0.0),
                 /* height */ lane.height.unwrap_or(0.0),
             ));
-            lane_position_y += lane_height;
         }
-
-        pool_position_y += pool_height + 50.0; // Add some space between pools
     }
+
 
     // Add BPMN shapes for flow nodes
     for pool in &graph.pools {
@@ -196,6 +180,15 @@ exporterVersion="5.17.0">
   </bpmndi:BPMNEdge>"#,
             edge.from, edge.to, edge.from, edge.to
         ));
+
+        for (x, y) in edge.adjusted_points.as_ref().unwrap() {
+            bpmn.push_str(&format!(
+                r#"<bpmndi:waypoint x="{:.2}" y="{:.2}" />"#,
+                x, y
+            ));
+        }
+
+        bpmn.push_str(r#"</bpmndi:BPMNEdge>"#);
     }
 
     bpmn.push_str(
