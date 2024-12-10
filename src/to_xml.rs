@@ -189,15 +189,29 @@ exporterVersion="5.17.0">
     }
 
     // Add BPMN edges for sequence flows
+    // Lisa BPMN edges for sequence flows
     for edge in &graph.edges {
         bpmn.push_str(&format!(
-            r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">
-    <!-- Add waypoints if available -->
-  </bpmndi:BPMNEdge>"#,
+            r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">"#,
             edge.from, edge.to, edge.from, edge.to
         ));
+
+        // Lisa waypoints adjusted_points-st
+        if let Some(points) = &edge.adjusted_points {
+            for (x, y) in points {
+                bpmn.push_str(&format!(
+                    r#"<di:waypoint x="{:.2}" y="{:.2}" />"#,
+                    x, y
+                ));
+            }
+        } else {
+            eprintln!("Warning: Edge {} -> {} has no adjusted_points.", edge.from, edge.to);
+        }
+
+        bpmn.push_str(r#"</bpmndi:BPMNEdge>"#);
     }
 
+    // Sulge BPMNPlane, BPMNDiagram ja definitions lõpus
     bpmn.push_str(
         r#"  </bpmndi:BPMNPlane>
 </bpmndi:BPMNDiagram>
@@ -378,13 +392,40 @@ fn generate_sequence_flows(
             let source_ref = get_node_bpmn_id(from_node);
             let target_ref = get_node_bpmn_id(to_node);
 
+            // Lisa sequenceFlow element
             bpmn.push_str(&format!(
                 r#"<bpmn:sequenceFlow id="Flow_{}_{}" sourceRef="{}" targetRef="{}" />"#,
                 edge.from, edge.to, source_ref, target_ref
             ));
+
+            // Lisa BPMNEdge element ja waypoints
+            bpmn.push_str(&format!(
+                r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">"#,
+                edge.from, edge.to, edge.from, edge.to
+            ));
+
+            if let Some(points) = &edge.adjusted_points {
+                for (x, y) in points {
+                    bpmn.push_str(&format!(
+                        r#"<di:waypoint x="{:.2}" y="{:.2}" />"#,
+                        x, y
+                    ));
+                }
+            } else {
+                // Kui adjusted_points puudub, lisa hoiatus
+                eprintln!(
+                    "Warning: Edge {} -> {} has no adjusted_points.",
+                    edge.from, edge.to
+                );
+            }
+
+            bpmn.push_str(r#"</bpmndi:BPMNEdge>"#);
         }
     }
 }
+
+
+
 
 fn get_node_bpmn_id(node: &Node) -> String {
     if let Some(event) = &node.event {
