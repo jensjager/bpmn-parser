@@ -33,7 +33,35 @@ This DSL allows users to define business processes using a simplified syntax. Th
 
 - **`X ->label`** : Declares a **(Diverging) Exclusive Gateway**, which is a branching point, with each branch labeled after `->`. You can also add optional text for the edge enclosed in quotes.
   - Example:
-    `X ->Branch2 "Optional text"`
+    `X ->Branch "Optional text"`
+
+- **`O ->label`** : Declares a **(Diverging) Inclusive Gateway**, which is a branching point, with each branch labeled after `->`. You can also add optional text for the edge enclosed in quotes.
+  - Example:
+    `O ->Branch "Optional text"`
+
+- **`+ ->label`** : Declares a **(Diverging) Parallel Gateway**, which is a branching point, with each branch labeled after `->`. You can also add optional text for the edge enclosed in quotes.
+  - Example:
+    `+ ->Branch "Optional text"`
+
+- **`* ->label`** : Declares a **(Diverging) Event Gateway**, which is a branching point, with each branch labeled after `->`. You can also add optional text for the edge enclosed in quotes.
+  - Example:
+    `* ->Branch "Optional text"`
+
+- **`X <-label`** : Declares a **(Converging) Exclusive Gateway**, which is used to indicate to which label should the last node join to the converging exclusive gateway.
+  - Example:
+    `X <-endLabel`
+
+- **`O <-label`** : Declares a **(Converging) Inclusive Gateway**, which is used to indicate to which label should the last node join to the converging inclusive gateway.
+  - Example:
+    `O <-endLabel`
+
+- **`+ <-label`** : Declares a **(Converging) Parallel Gateway**, which is used to indicate to which label should the last node join to the converging parallel gateway.
+  - Example:
+    `+ <-endLabel`
+
+- **`* <-label`** : Declares a **(Converging) Event Gateway**, which is used to indicate to which label should the last node join to the converging event gateway.
+  - Example:
+    `* <-endLabel`
 
 - **`label:`** : Declares a **label**, which is defined by ending with a colon `:`. The label has to include at least one node and a join operator. Labels are used to define a branch.
   - Example:
@@ -45,10 +73,6 @@ This DSL allows users to define business processes using a simplified syntax. Th
 - **`J label`** : Marks a **join operator**, indicating where a branch should merge. You must specify a label. If a join is not wanted, give it a join label that is not used anywhere.
   - Example:
     `J endLabel`
-
-- **`X <-label`** : Declares a **(Converging) Exclusive Gateway**, which is used to indicate to which label should the last node join to the converging exclusive gateway.
-  - Example:
-    `X <-endLabel`
 
 - **`G ->label`** : Declares a **Go (from) operator**, which is used to indicate from which node should a edge start. The edge starts from the previous node so you cannot use it before defining a node beforehand. Also you must define a label for the `G` operator.
   - Example:
@@ -100,12 +124,10 @@ X <-endjoin
 # Start Event
 - Task
 G ->jump
-. End Event
 == Lane2
 G <-jump
-# Start Event2
-- Task2
-. End Event2
+- Task
+. End Event
 ```
 
 
