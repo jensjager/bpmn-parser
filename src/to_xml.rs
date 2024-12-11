@@ -1,5 +1,3 @@
-// to_xml.rs
-
 use crate::common::bpmn_event::{BpmnEvent};
 use crate::common::bpmn_event::{get_node_size};
 use crate::common::graph::Graph;
@@ -7,28 +5,17 @@ use crate::common::node::Node;
 use std::fs::File;
 use std::io::Write;
 
-// Adds color attributes for `stroke_color` and `fill_color` to the BPMN node XML if they exist.
-fn add_color_attributes(stroke_color: Option<&String>, fill_color: Option<&String>) -> String {
-    let stroke = stroke_color
-        .map(|color| format!(r#" bioc:stroke="{}""#, color))
-        .unwrap_or_default();
-    let fill = fill_color
-        .map(|color| format!(r#" bioc:fill="{}""#, color))
-        .unwrap_or_default();
-    format!("{}{}", stroke, fill)
-}
-
 pub fn generate_bpmn(graph: &Graph) -> String {
     let mut bpmn = String::from(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
-xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_1"
-targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler"
-exporterVersion="5.17.0">
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_1"
+    targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler"
+    exporterVersion="5.17.0">
   <bpmn:process id="Process_1" isExecutable="true">
 "#,
     );
@@ -63,7 +50,6 @@ exporterVersion="5.17.0">
                         node.id
                     ));
                 }
-                // Removed BpmnEvent::GatewayJoin as per team member's message
 
                 // Added handling for GatewayParallel
                 BpmnEvent::GatewayParallel => {
@@ -491,9 +477,9 @@ exporterVersion="5.17.0">
 
         bpmn.push_str(&format!(
             r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}">
-          <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
-        </bpmndi:BPMNShape>
-    "#,
+      <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
+    </bpmndi:BPMNShape>
+"#,
             get_node_bpmn_id(node),
             get_node_bpmn_id(node),
             node.x.unwrap_or(0.0),
