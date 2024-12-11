@@ -1,3 +1,5 @@
+// to_xml.rs
+
 use crate::common::bpmn_event::{BpmnEvent};
 use crate::common::bpmn_event::{get_node_size};
 use crate::common::graph::Graph;
@@ -61,15 +63,31 @@ exporterVersion="5.17.0">
                         node.id
                     ));
                 }
-                BpmnEvent::GatewayJoin(label) => {
+                // Removed BpmnEvent::GatewayJoin as per team member's message
+
+                // Added handling for GatewayParallel
+                BpmnEvent::GatewayParallel => {
                     bpmn.push_str(&format!(
-                        r#"<bpmn:parallelGateway id="Gateway_{}" name="{}">
+                        r#"<bpmn:parallelGateway id="Gateway_{}">
     <bpmn:incoming>Flow_{}</bpmn:incoming>
     <bpmn:outgoing>Flow_{}</bpmn:outgoing>
   </bpmn:parallelGateway>
 "#,
                         node.id,
-                        label,
+                        node.id - 1,
+                        node.id
+                    ));
+                }
+
+                // Added handling for GatewayEvent
+                BpmnEvent::GatewayEvent => {
+                    bpmn.push_str(&format!(
+                        r#"<bpmn:eventBasedGateway id="Gateway_{}">
+    <bpmn:incoming>Flow_{}</bpmn:incoming>
+    <bpmn:outgoing>Flow_{}</bpmn:outgoing>
+  </bpmn:eventBasedGateway>
+"#,
+                        node.id,
                         node.id - 1,
                         node.id
                     ));
@@ -289,9 +307,7 @@ exporterVersion="5.17.0">
     <bpmn:errorEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -304,9 +320,7 @@ exporterVersion="5.17.0">
     <bpmn:timerEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -319,9 +333,7 @@ exporterVersion="5.17.0">
     <bpmn:signalEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -334,9 +346,7 @@ exporterVersion="5.17.0">
     <bpmn:messageEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -349,9 +359,7 @@ exporterVersion="5.17.0">
     <bpmn:escalationEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -366,9 +374,7 @@ exporterVersion="5.17.0">
     </bpmn:conditionalEventDefinition>
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -382,9 +388,7 @@ exporterVersion="5.17.0">
     <bpmn:compensateEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         node.id
                     ));
                 }
@@ -556,6 +560,10 @@ fn get_node_bpmn_id(node: &Node) -> String {
             BpmnEvent::EndTerminateEvent(_) => format!("EndEvent_{}", node.id),
             BpmnEvent::EndEscalationEvent(_) => format!("EndEvent_{}", node.id),
             BpmnEvent::EndCompensationEvent(_) => format!("EndEvent_{}", node.id),
+            BpmnEvent::GatewayExclusive => format!("Gateway_{}", node.id),
+            BpmnEvent::GatewayInclusive => format!("Gateway_{}", node.id),
+            BpmnEvent::GatewayParallel => format!("Gateway_{}", node.id),
+            BpmnEvent::GatewayEvent => format!("Gateway_{}", node.id),
             BpmnEvent::Middle(_) | BpmnEvent::ActivityTask(_) => format!("Activity_{}", node.id),
             BpmnEvent::ActivitySubprocess(_) => format!("SubProcess_{}", node.id),
             BpmnEvent::ActivityCallActivity(_) => format!("CallActivity_{}", node.id),
@@ -565,9 +573,6 @@ fn get_node_bpmn_id(node: &Node) -> String {
             BpmnEvent::TaskService(_) => format!("ServiceTask_{}", node.id),
             BpmnEvent::TaskBusinessRule(_) => format!("BusinessRuleTask_{}", node.id),
             BpmnEvent::TaskScript(_) => format!("ScriptTask_{}", node.id),
-            BpmnEvent::GatewayExclusive => format!("Gateway_{}", node.id),
-            BpmnEvent::GatewayInclusive => format!("Gateway_{}", node.id),
-            BpmnEvent::GatewayJoin(_) => format!("Gateway_{}", node.id),
             BpmnEvent::BoundaryEvent(_, _, _) => format!("BoundaryEvent_{}", node.id),
             BpmnEvent::BoundaryErrorEvent(_, _, _) => format!("BoundaryEvent_{}", node.id),
             BpmnEvent::BoundaryTimerEvent(_, _, _) => format!("BoundaryEvent_{}", node.id),
