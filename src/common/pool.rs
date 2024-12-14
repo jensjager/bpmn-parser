@@ -79,4 +79,15 @@ impl Pool {
     pub fn set_width(&mut self, width: f64) {
         self.width = Some(width);
     }
+
+    pub fn set_position(&mut self, x: f64, y: f64) {
+        self.x = Some(x);
+        self.y = Some(y);
+    }
+
+    pub fn set_lane_width(&mut self, width: f64) {
+        for lane in &mut self.lanes {
+            lane.set_width(width);
+        }
+    }
 }

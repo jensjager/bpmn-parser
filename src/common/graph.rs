@@ -61,22 +61,6 @@ impl Graph {
         &mut self.pools
     }
 
-    pub fn take_pools(&mut self) -> Vec<Pool> {
-        std::mem::take(&mut self.pools)
-    }
-
-    pub fn set_pools(&mut self, pools: Vec<Pool>) {
-        self.pools = pools;
-    }
-
-    pub fn get_edges(&self) -> Vec<Edge> {
-        self.edges.clone()
-    }
-
-    pub fn get_edges_mut(&mut self) -> &mut Vec<Edge> {
-        &mut self.edges
-    }
-
     pub fn take_edges(&mut self) -> Vec<Edge> {
         std::mem::take(&mut self.edges)
     }
@@ -128,6 +112,7 @@ impl Graph {
         println!("Printing edges");
         for edge in &self.edges {
             println!("  Edge: {} -> {}", edge.from, edge.to);
+            
         }
     }
 }

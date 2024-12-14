@@ -6,18 +6,12 @@ use crate::common::pool::Pool;
 use good_lp::*;
 use std::collections::HashMap;
 
-// HashMap<String, HashMap<String, HashMap<i32, Node>>>
-// HashMap<Pool, HashMap<Lane, HashMap<Layer, Node>>>
-
 pub fn solve_layer_assignment(graph: &mut Graph) {
-    let edges = graph.get_edges();
-    let mut pools = graph.take_pools(); 
-    find_crossings(&edges, &mut pools);
-    graph.set_pools(pools); 
+    find_crossings(&graph.edges, &mut graph.pools);
 
-    for pool in graph.get_pools_mut() {
+    for pool in graph.pools.iter_mut() {
         for lane in pool.get_lanes_mut() {
-            solve_layers(&edges, lane);
+            solve_layers(&graph.edges, lane);
         }
     }
 }

@@ -42,10 +42,6 @@ impl Lane {
         self.layers.sort_by(|a, b| a.layer_id.cmp(&b.layer_id));
     }
 
-    pub fn get_nodes_by_layer_id(&self, layer_id: usize) -> Vec<&Node> {
-        self.layers.iter().filter(|node| node.layer_id.unwrap_or(0) == layer_id).collect()
-    }
-
     pub fn get_nodes_by_layer_id_mut(&mut self, layer_id: usize) -> Vec<&mut Node> {
         self.layers
             .iter_mut()
@@ -55,7 +51,7 @@ impl Lane {
 
     pub fn get_node_by_id(&self, id: usize) -> Option<&Node> {
         self.layers.iter().find(|node| node.id == id)
-    }   
+    }
 
     pub fn set_width(&mut self, width: f64) {
         self.width = Some(width);
@@ -63,5 +59,10 @@ impl Lane {
 
     pub fn set_height(&mut self, height: f64) {
         self.height = Some(height);
+    }
+
+    pub fn set_position(&mut self, x: f64, y: f64) {
+        self.x = Some(x);
+        self.y = Some(y);
     }
 }
