@@ -159,18 +159,23 @@ pub fn assign_xy_to_nodes(graph: &mut Graph) {
 
 fn find_max_nodes_in_layer(nodes: &Vec<Node>) -> usize {
     let mut max = 0;
+    let mut cur_max = 0;
     let mut current_layer_id = 0;
 
     for node in nodes {
+        println!("Node max: {}", node.layer_id.as_ref().unwrap());
         if node.layer_id.unwrap_or(0) != current_layer_id {
             current_layer_id = node.layer_id.unwrap_or(0);
-            max = 1;
-        }
-        if node.layer_id.unwrap_or(0) == current_layer_id {
-            max += 1;
+            if cur_max > max {
+                max = cur_max;
+            }
+
+            cur_max = 1;
+        } else if node.layer_id.unwrap_or(0) == current_layer_id {
+            cur_max += 1;
         }
     }
-
+    println!("Max nodes found: {}", max);
     max
 }
 

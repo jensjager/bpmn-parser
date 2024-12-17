@@ -3,7 +3,7 @@ use crate::common::graph::Graph;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
 
-const STEP_SIZE: usize = 1;
+const STEP_SIZE: usize = 10;
 const NODE_MARGIN: isize = 20;
 
 pub fn assign_bend_points(graph: &mut Graph) {
