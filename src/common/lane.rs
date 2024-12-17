@@ -3,7 +3,7 @@ use crate::common::node::Node;
 
 pub struct Lane {
     lane: String,
-    layers: Vec<Node>,
+    pub layers: Vec<Node>,
     pub x: Option<f64>,
     pub y: Option<f64>,
     pub width: Option<f64>,

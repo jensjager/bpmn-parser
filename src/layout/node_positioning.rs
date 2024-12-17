@@ -144,28 +144,30 @@ pub fn assign_xy_to_nodes(graph: &mut Graph) {
     }
 
 
-    fn find_max_nodes_in_layer(nodes: &Vec<Node>) -> usize {
-        let mut max = 0;
-        let mut current_layer_id = 0;
-        for node in nodes {
-            if node.layer_id.unwrap_or(0) != current_layer_id {
-                current_layer_id = node.layer_id.unwrap_or(0);
-                max = 0;
-            }
-            if node.layer_id.unwrap_or(0) == current_layer_id {
-                max += 1;
-            }
+fn find_max_nodes_in_layer(nodes: &Vec<Node>) -> usize {
+    let mut max = 0;
+    let mut current_layer_id = 0;
+
+    for node in nodes {
+        if node.layer_id.unwrap_or(0) != current_layer_id {
+            current_layer_id = node.layer_id.unwrap_or(0);
+            max = 1;
         }
-        max
+        if node.layer_id.unwrap_or(0) == current_layer_id {
+            max += 1;
+        }
     }
 
-    fn get_lane_width(lane: &Lane) -> f64 {
-        let last_node = lane.get_layers().last().unwrap();
-        let last_layer = last_node.layer_id.unwrap_or(0);
-        if last_layer == 0 || last_layer == 1 {
-            350.0
-        } else {
-            last_layer as f64 * 250.0
-        }
+    max
+}
+
+fn get_lane_width(lane: &Lane) -> f64 {
+    let last_node = lane.get_layers().last().unwrap();
+    let last_layer = last_node.layer_id.unwrap_or(0);
+    println!("last_layer: {}", last_layer);
+    if last_layer == 0 || last_layer == 1 {
+        return 350.0;
+    } else {
+        return (last_layer) as f64 * 300.0;
     }
 }

@@ -3,9 +3,9 @@ pub struct Edge {
     pub from: usize,
     pub to: usize,
     pub text: Option<String>,
-    pub adjusted_points: Option<Vec<(f64, f64)>>, // Uued, lõplikud punktid, mis hõlmavad algus-, lõpp- ja painutuspunkte
-    pub pool: Option<String>,                     // Pool context
-    pub lane: Option<String>,                     // Lane context
+    pub bend_points: Option<Vec<(f64, f64)>>, // Uued, lõplikud punktid, mis hõlmavad algus-, lõpp- ja painutuspunkte
+    pub pool: Option<String>,                 // Pool context
+    pub lane: Option<String>,                 // Lane context
 }
 
 impl Edge {
@@ -20,7 +20,7 @@ impl Edge {
             from,
             to,
             text,
-            adjusted_points: None, // Alguses tühi, määratakse assign_bend_points-s
+            bend_points: None, // Alguses tühi, määratakse assign_bend_points-s
             pool,
             lane,
         }

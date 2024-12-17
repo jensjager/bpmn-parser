@@ -1,42 +1,42 @@
 #[derive(Debug, Clone)]
 pub enum BpmnEvent {
-    Start(String),              // Start event with label
-    Middle(String),             // Middle event with label
-    End(String),                // End event with label
-    GatewayExclusive,           // Exclusive gateway event
-    GatewayJoin(String),        // Join gateway event with label
-    ActivityTask(String),       // Task with label
-    GatewayInclusive,           // Inclusive gateway event
-    ActivitySubprocess(String),         // Subprocess with label
-    ActivityCallActivity(String),       // Call Activity with label
-    ActivityEventSubprocess(String),    // Event Subprocess with label
-    ActivityTransaction(String),        // Transaction with label
-    StartTimerEvent(String),            // Timer start event with label
-    StartSignalEvent(String),           // Signal start event with label
-    StartMessageEvent(String),          // Message start event with label
-    StartConditionalEvent(String),      // Conditional start event with label
-    EndErrorEvent(String),              // Error end event with label
-    EndCancelEvent(String),             // Cancel end event with label
-    EndSignalEvent(String),             // Signal end event with label
-    EndMessageEvent(String),            // Message end event with label
-    EndTerminateEvent(String),          // Terminate end event with label
-    EndEscalationEvent(String),         // Escalation end event with label
-    EndCompensationEvent(String),       // Compensation end event with label
-    BoundaryEvent(String, usize, bool),             // Boundary event with label, attached to node ID, cancel activity flag
-    BoundaryErrorEvent(String, usize, bool),        // Error boundary event
-    BoundaryTimerEvent(String, usize, bool),        // Timer boundary event
-    BoundaryCancelEvent(String, usize, bool),       // Cancel boundary event
-    BoundarySignalEvent(String, usize, bool),       // Signal boundary event
-    BoundaryMessageEvent(String, usize, bool),      // Message boundary event
-    BoundaryEscalationEvent(String, usize, bool),   // Escalation boundary event
-    BoundaryConditionalEvent(String, usize, bool),  // Conditional boundary event
-    BoundaryCompensationEvent(String, usize),       // Compensation boundary event (always non-interrupting)
-    DataStoreReference(String),         // Data store reference with label
-    DataObjectReference(String),        // Data object reference with label
-    TaskUser(String),                   // User task with label
-    TaskService(String),                // Service task with label
-    TaskBusinessRule(String),           // Business rule task with label
-    TaskScript(String),                 // Script task with label
+    Start(String),                                 // Start event with label
+    Middle(String),                                // Middle event with label
+    End(String),                                   // End event with label
+    GatewayExclusive,                              // Exclusive gateway event
+    GatewayJoin(String),                           // Join gateway event with label
+    ActivityTask(String),                          // Task with label
+    GatewayInclusive,                              // Inclusive gateway event
+    ActivitySubprocess(String),                    // Subprocess with label
+    ActivityCallActivity(String),                  // Call Activity with label
+    ActivityEventSubprocess(String),               // Event Subprocess with label
+    ActivityTransaction(String),                   // Transaction with label
+    StartTimerEvent(String),                       // Timer start event with label
+    StartSignalEvent(String),                      // Signal start event with label
+    StartMessageEvent(String),                     // Message start event with label
+    StartConditionalEvent(String),                 // Conditional start event with label
+    EndErrorEvent(String),                         // Error end event with label
+    EndCancelEvent(String),                        // Cancel end event with label
+    EndSignalEvent(String),                        // Signal end event with label
+    EndMessageEvent(String),                       // Message end event with label
+    EndTerminateEvent(String),                     // Terminate end event with label
+    EndEscalationEvent(String),                    // Escalation end event with label
+    EndCompensationEvent(String),                  // Compensation end event with label
+    BoundaryEvent(String, usize, bool), // Boundary event with label, attached to node ID, cancel activity flag
+    BoundaryErrorEvent(String, usize, bool), // Error boundary event
+    BoundaryTimerEvent(String, usize, bool), // Timer boundary event
+    BoundaryCancelEvent(String, usize, bool), // Cancel boundary event
+    BoundarySignalEvent(String, usize, bool), // Signal boundary event
+    BoundaryMessageEvent(String, usize, bool), // Message boundary event
+    BoundaryEscalationEvent(String, usize, bool), // Escalation boundary event
+    BoundaryConditionalEvent(String, usize, bool), // Conditional boundary event
+    BoundaryCompensationEvent(String, usize), // Compensation boundary event (always non-interrupting)
+    DataStoreReference(String),               // Data store reference with label
+    DataObjectReference(String),              // Data object reference with label
+    TaskUser(String),                         // User task with label
+    TaskService(String),                      // Service task with label
+    TaskBusinessRule(String),                 // Business rule task with label
+    TaskScript(String),                       // Script task with label
 }
 
 pub fn get_node_size(event: &BpmnEvent) -> (usize, usize) {
@@ -59,9 +59,9 @@ pub fn get_node_size(event: &BpmnEvent) -> (usize, usize) {
         | BpmnEvent::EndCompensationEvent(_) => (36, 36),
 
         // Gateways
-        BpmnEvent::GatewayExclusive
-        | BpmnEvent::GatewayInclusive
-        | BpmnEvent::GatewayJoin(_) => (50, 50),
+        BpmnEvent::GatewayExclusive | BpmnEvent::GatewayInclusive | BpmnEvent::GatewayJoin(_) => {
+            (50, 50)
+        }
 
         // Activities
         BpmnEvent::ActivityTask(_)

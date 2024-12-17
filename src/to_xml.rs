@@ -1,11 +1,8 @@
 // to_xml.rs
 
 use crate::common::bpmn_event::BpmnEvent;
-use crate::common::edge::Edge;
 use crate::common::graph::Graph;
-use crate::common::lane::Lane;
 use crate::common::node::Node;
-use crate::common::pool::Pool;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
@@ -61,10 +58,7 @@ exporterVersion="5.17.0">
 
         // Generate laneSet if there are lanes
         if !lane_ids.is_empty() {
-            bpmn.push_str(&format!(
-                r#"<bpmn:laneSet id="LaneSet_{}">"#,
-                pool_id
-            ));
+            bpmn.push_str(&format!(r#"<bpmn:laneSet id="LaneSet_{}">"#, pool_id));
 
             for lane_id in &lane_ids {
                 bpmn.push_str(&format!(
@@ -125,7 +119,7 @@ exporterVersion="5.17.0">
             /* y */ pool.y.unwrap_or(0.0),
             /* width */ pool.width.unwrap_or(0.0),
             /* height */ pool.height.unwrap_or(0.0),
-        )); 
+        ));
 
         for lane in pool.get_lanes() {
             let lane_id = lane.get_lane();
@@ -143,7 +137,6 @@ exporterVersion="5.17.0">
         }
     }
 
-
     // Add BPMN shapes for flow nodes
     for pool in &graph.pools {
         for lane in pool.get_lanes() {
@@ -154,22 +147,22 @@ exporterVersion="5.17.0">
                     (100, 80)
                 };
 
-                let x = node.x.unwrap_or(0.0);
+                let x = node.x.unwrap_or(0.0) + node.x_offset.unwrap_or(0.0);
                 let y = node.y.unwrap_or(0.0) + node.y_offset.unwrap_or(0.0);
 
                 bpmn.push_str(&format!(
-                r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}">
+                    r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}">
                 <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
                 </bpmndi:BPMNShape>"#,
-                get_node_bpmn_id(node),
-                get_node_bpmn_id(node),
-                x,
-                y,
-                width,
-                height
+                    get_node_bpmn_id(node),
+                    get_node_bpmn_id(node),
+                    x,
+                    y,
+                    width,
+                    height
                 ));
-    }
-}
+            }
+        }
     }
 
     // Add BPMN edges for sequence flows
@@ -180,15 +173,15 @@ exporterVersion="5.17.0">
         ));
 
         // Lisa waypoints adjusted_points-st
-        if let Some(points) = &edge.adjusted_points {
+        if let Some(points) = &edge.bend_points {
             for (x, y) in points {
-                bpmn.push_str(&format!(
-                    r#"<di:waypoint x="{:.2}" y="{:.2}" />"#,
-                    x, y
-                ));
+                bpmn.push_str(&format!(r#"<di:waypoint x="{:.2}" y="{:.2}" />"#, x, y));
             }
         } else {
-            eprintln!("Warning: Edge {} -> {} has no adjusted_points.", edge.from, edge.to);
+            eprintln!(
+                "Warning: Edge {} -> {} has no adjusted_points.",
+                edge.from, edge.to
+            );
         }
 
         bpmn.push_str(r#"</bpmndi:BPMNEdge>"#);
@@ -307,7 +300,9 @@ fn generate_flow_node(bpmn: &mut String, node: &Node, graph: &Graph) {
             }
 
             // Gateways
-            BpmnEvent::GatewayExclusive | BpmnEvent::GatewayInclusive | BpmnEvent::GatewayJoin(_) => {
+            BpmnEvent::GatewayExclusive
+            | BpmnEvent::GatewayInclusive
+            | BpmnEvent::GatewayJoin(_) => {
                 let element_type = match event {
                     BpmnEvent::GatewayExclusive => "exclusiveGateway",
                     BpmnEvent::GatewayInclusive => "inclusiveGateway",
@@ -360,11 +355,7 @@ fn generate_flow_node(bpmn: &mut String, node: &Node, graph: &Graph) {
     }
 }
 
-fn generate_sequence_flows(
-    bpmn: &mut String,
-    graph: &Graph,
-    pool_nodes: &Vec<&Node>,
-) {
+fn generate_sequence_flows(bpmn: &mut String, graph: &Graph, pool_nodes: &Vec<&Node>) {
     let node_ids: HashSet<usize> = pool_nodes.iter().map(|node| node.id).collect();
 
     for edge in &graph.edges {
@@ -387,19 +378,10 @@ fn generate_sequence_flows(
                 edge.from, edge.to, edge.from, edge.to
             ));
 
-            if let Some(points) = &edge.adjusted_points {
+            if let Some(points) = &edge.bend_points {
                 for (x, y) in points {
-                    bpmn.push_str(&format!(
-                        r#"<di:waypoint x="{:.2}" y="{:.2}" />"#,
-                        x, y
-                    ));
+                    bpmn.push_str(&format!(r#"<di:waypoint x="{:.2}" y="{:.2}" />"#, x, y));
                 }
-            } else {
-                // Kui adjusted_points puudub, lisa hoiatus
-                eprintln!(
-                    "Warning: Edge {} -> {} has no adjusted_points.",
-                    edge.from, edge.to
-                );
             }
 
             bpmn.push_str(r#"</bpmndi:BPMNEdge>"#);
@@ -407,20 +389,23 @@ fn generate_sequence_flows(
     }
 }
 
-
-
-
 fn get_node_bpmn_id(node: &Node) -> String {
     if let Some(event) = &node.event {
         match event {
-            BpmnEvent::Start(_) | BpmnEvent::StartTimerEvent(_)
-            | BpmnEvent::StartSignalEvent(_) | BpmnEvent::StartMessageEvent(_)
+            BpmnEvent::Start(_)
+            | BpmnEvent::StartTimerEvent(_)
+            | BpmnEvent::StartSignalEvent(_)
+            | BpmnEvent::StartMessageEvent(_)
             | BpmnEvent::StartConditionalEvent(_) => format!("StartEvent_{}", node.id),
 
-            BpmnEvent::End(_) | BpmnEvent::EndErrorEvent(_)
-            | BpmnEvent::EndCancelEvent(_) | BpmnEvent::EndSignalEvent(_)
-            | BpmnEvent::EndMessageEvent(_) | BpmnEvent::EndTerminateEvent(_)
-            | BpmnEvent::EndEscalationEvent(_) | BpmnEvent::EndCompensationEvent(_) => {
+            BpmnEvent::End(_)
+            | BpmnEvent::EndErrorEvent(_)
+            | BpmnEvent::EndCancelEvent(_)
+            | BpmnEvent::EndSignalEvent(_)
+            | BpmnEvent::EndMessageEvent(_)
+            | BpmnEvent::EndTerminateEvent(_)
+            | BpmnEvent::EndEscalationEvent(_)
+            | BpmnEvent::EndCompensationEvent(_) => {
                 format!("EndEvent_{}", node.id)
             }
 
@@ -470,9 +455,9 @@ pub fn get_node_size(event: &BpmnEvent) -> (usize, usize) {
         | BpmnEvent::EndCompensationEvent(_) => (36, 36),
 
         // Gateways
-        BpmnEvent::GatewayExclusive
-        | BpmnEvent::GatewayInclusive
-        | BpmnEvent::GatewayJoin(_) => (50, 50),
+        BpmnEvent::GatewayExclusive | BpmnEvent::GatewayInclusive | BpmnEvent::GatewayJoin(_) => {
+            (50, 50)
+        }
 
         // Activities
         BpmnEvent::ActivityTask(_)

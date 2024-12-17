@@ -83,12 +83,17 @@ fn find_crossings(edges: &Vec<Edge>, pools: &mut Vec<Pool>) {
     }
 }
 
-fn find_crossing(nodes_by_id: &HashMap<usize, Node>, edges: &Vec<Edge>, node: &Node) -> (bool, Option<usize>) {
+fn find_crossing(
+    nodes_by_id: &HashMap<usize, Node>,
+    edges: &Vec<Edge>,
+    node: &Node,
+) -> (bool, Option<usize>) {
     for edge in edges {
         if edge.from == node.id {
             let to_node = nodes_by_id.get(&edge.to);
             if let Some(to_node) = to_node {
-                if to_node.lane.as_ref().unwrap() != node.lane.as_ref().unwrap() {
+                if to_node.lane.clone().unwrap_or_default() != node.lane.clone().unwrap_or_default()
+                {
                     return (true, Some(edge.to));
                 }
             } else {

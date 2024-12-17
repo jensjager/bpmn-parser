@@ -30,6 +30,7 @@ impl Graph {
         // Generate or use provided node ID
         let node_id = id.unwrap_or_else(|| self.next_node_id());
 
+
         // Create new node
         let node = Node::new(
             node_id,
@@ -40,9 +41,14 @@ impl Graph {
             lane_node.clone(),
         );
 
+
         // Add node to appropriate pool
-        let pool_name = pool_node.unwrap_or_else(|| "default_pool".to_string());
-        if let Some(pool) = self.pools.iter_mut().find(|p| p.get_pool_name() == pool_name) {
+        let pool_name = pool_node.unwrap_or_default();
+        if let Some(pool) = self
+            .pools
+            .iter_mut()
+            .find(|p| p.get_pool_name() == pool_name)
+        {
             pool.add_node(node);
         } else {
             let mut new_pool = Pool::new(pool_name);
@@ -95,7 +101,12 @@ impl Graph {
     }
 
     pub fn get_nodes_by_pool_name(&self, pool_name: &str) -> Vec<&Node> {
-        self.pools.iter().flat_map(|pool| pool.get_lanes()).flat_map(|lane| lane.get_layers()).filter(|node| node.pool.as_deref() == Some(pool_name)).collect()
+        self.pools
+            .iter()
+            .flat_map(|pool| pool.get_lanes())
+            .flat_map(|lane| lane.get_layers())
+            .filter(|node| node.pool.as_deref() == Some(pool_name))
+            .collect()
     }
 
     pub fn print_graph(&self) {
@@ -105,14 +116,19 @@ impl Graph {
             for lane in pool.get_lanes() {
                 println!("  Lane: {}", lane.get_lane());
                 for node in lane.get_layers() {
-                    println!("    Node: {}", node.id);
+                    println!(
+                        "    Node: {}, x: {}, y: {}, y_offset: {}",
+                        node.id,
+                        node.x.unwrap_or(0.0),
+                        node.y.unwrap_or(0.0),
+                        node.y_offset.unwrap_or(0.0)
+                    );
                 }
             }
         }
         println!("Printing edges");
         for edge in &self.edges {
             println!("  Edge: {} -> {}", edge.from, edge.to);
-
         }
     }
 }

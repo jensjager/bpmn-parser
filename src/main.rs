@@ -76,8 +76,8 @@ pub fn run_parser(input: &str) -> String {
     match parser.parse() {
         Ok(mut graph) => {
             println!("Parsed BPMN Graph:");
-            graph.print_graph();
 
+            graph.print_graph();
             solve_layer_assignment(&mut graph);
             // reduce_crossings(&mut graph, &layers);
             assign_xy_to_nodes(&mut graph);

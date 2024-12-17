@@ -4,7 +4,7 @@ use crate::common::node::Node;
 use std::collections::HashMap;
 pub struct Pool {
     pool_name: String,
-    lanes: Vec<Lane>,
+    pub lanes: Vec<Lane>,
     pub x: Option<f64>,
     pub y: Option<f64>,
     pub width: Option<f64>,
