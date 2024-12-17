@@ -16,8 +16,6 @@ use layout::node_positioning::assign_xy_to_nodes;
 use layout::solve_layer_assignment::solve_layer_assignment;
 use lexer::Lexer;
 use parser::Parser;
-#[cfg(test)]
-use test::use_cases_tests;
 
 use std::env;
 use std::process::Command;
@@ -250,7 +248,7 @@ pub fn run_parser(input: &str) -> String {
                             println!("  From Node {} to Node {}", edge.from, edge.to);
                         }
                     }
-                    return generate_bpmn(&graph);
+                    generate_bpmn(&graph)
                 }
                 Err(e) => {
                     eprintln!("Error parsing input:\n{}", e);

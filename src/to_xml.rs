@@ -5,28 +5,17 @@ use crate::common::node::Node;
 use std::fs::File;
 use std::io::Write;
 
-// Adds color attributes for `stroke_color` and `fill_color` to the BPMN node XML if they exist.
-fn add_color_attributes(stroke_color: Option<&String>, fill_color: Option<&String>) -> String {
-    let stroke = stroke_color
-        .map(|color| format!(r#" bioc:stroke="{}""#, color))
-        .unwrap_or_default();
-    let fill = fill_color
-        .map(|color| format!(r#" bioc:fill="{}""#, color))
-        .unwrap_or_default();
-    format!("{}{}", stroke, fill)
-}
-
 pub fn generate_bpmn(graph: &Graph) -> String {
     let mut bpmn = String::from(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
-xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_1"
-targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler"
-exporterVersion="5.17.0">
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_1"
+    targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler"
+    exporterVersion="5.17.0">
   <bpmn:process id="Process_1" isExecutable="true">
 "#,
     );
@@ -61,15 +50,30 @@ exporterVersion="5.17.0">
                         node.id
                     ));
                 }
-                BpmnEvent::GatewayJoin(label) => {
+
+                // Added handling for GatewayParallel
+                BpmnEvent::GatewayParallel => {
                     bpmn.push_str(&format!(
-                        r#"<bpmn:parallelGateway id="Gateway_{}" name="{}">
+                        r#"<bpmn:parallelGateway id="Gateway_{}">
     <bpmn:incoming>Flow_{}</bpmn:incoming>
     <bpmn:outgoing>Flow_{}</bpmn:outgoing>
   </bpmn:parallelGateway>
 "#,
                         node.id,
-                        label,
+                        node.id - 1,
+                        node.id
+                    ));
+                }
+
+                // Added handling for GatewayEvent
+                BpmnEvent::GatewayEvent => {
+                    bpmn.push_str(&format!(
+                        r#"<bpmn:eventBasedGateway id="Gateway_{}">
+    <bpmn:incoming>Flow_{}</bpmn:incoming>
+    <bpmn:outgoing>Flow_{}</bpmn:outgoing>
+  </bpmn:eventBasedGateway>
+"#,
+                        node.id,
                         node.id - 1,
                         node.id
                     ));
@@ -289,9 +293,7 @@ exporterVersion="5.17.0">
     <bpmn:errorEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -304,9 +306,7 @@ exporterVersion="5.17.0">
     <bpmn:timerEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -319,9 +319,7 @@ exporterVersion="5.17.0">
     <bpmn:signalEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -334,9 +332,7 @@ exporterVersion="5.17.0">
     <bpmn:messageEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -349,9 +345,7 @@ exporterVersion="5.17.0">
     <bpmn:escalationEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -366,9 +360,7 @@ exporterVersion="5.17.0">
     </bpmn:conditionalEventDefinition>
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         if *cancel_activity { "true" } else { "false" },
                         node.id
                     ));
@@ -382,9 +374,7 @@ exporterVersion="5.17.0">
     <bpmn:compensateEventDefinition />
   </bpmn:boundaryEvent>
 "#,
-                        node.id,
-                        label,
-                        attached_to_ref,
+                        node.id, label, attached_to_ref,
                         node.id
                     ));
                 }
@@ -487,9 +477,9 @@ exporterVersion="5.17.0">
 
         bpmn.push_str(&format!(
             r#"<bpmndi:BPMNShape id="{}_di" bpmnElement="{}">
-          <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
-        </bpmndi:BPMNShape>
-    "#,
+      <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
+    </bpmndi:BPMNShape>
+"#,
             get_node_bpmn_id(node),
             get_node_bpmn_id(node),
             node.x.unwrap_or(0.0),
@@ -556,6 +546,10 @@ fn get_node_bpmn_id(node: &Node) -> String {
             BpmnEvent::EndTerminateEvent(_) => format!("EndEvent_{}", node.id),
             BpmnEvent::EndEscalationEvent(_) => format!("EndEvent_{}", node.id),
             BpmnEvent::EndCompensationEvent(_) => format!("EndEvent_{}", node.id),
+            BpmnEvent::GatewayExclusive => format!("Gateway_{}", node.id),
+            BpmnEvent::GatewayInclusive => format!("Gateway_{}", node.id),
+            BpmnEvent::GatewayParallel => format!("Gateway_{}", node.id),
+            BpmnEvent::GatewayEvent => format!("Gateway_{}", node.id),
             BpmnEvent::Middle(_) | BpmnEvent::ActivityTask(_) => format!("Activity_{}", node.id),
             BpmnEvent::ActivitySubprocess(_) => format!("SubProcess_{}", node.id),
             BpmnEvent::ActivityCallActivity(_) => format!("CallActivity_{}", node.id),
@@ -565,9 +559,6 @@ fn get_node_bpmn_id(node: &Node) -> String {
             BpmnEvent::TaskService(_) => format!("ServiceTask_{}", node.id),
             BpmnEvent::TaskBusinessRule(_) => format!("BusinessRuleTask_{}", node.id),
             BpmnEvent::TaskScript(_) => format!("ScriptTask_{}", node.id),
-            BpmnEvent::GatewayExclusive => format!("Gateway_{}", node.id),
-            BpmnEvent::GatewayInclusive => format!("Gateway_{}", node.id),
-            BpmnEvent::GatewayJoin(_) => format!("Gateway_{}", node.id),
             BpmnEvent::BoundaryEvent(_, _, _) => format!("BoundaryEvent_{}", node.id),
             BpmnEvent::BoundaryErrorEvent(_, _, _) => format!("BoundaryEvent_{}", node.id),
             BpmnEvent::BoundaryTimerEvent(_, _, _) => format!("BoundaryEvent_{}", node.id),
