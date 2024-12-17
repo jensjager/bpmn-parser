@@ -2,7 +2,6 @@ use crate::common::bpmn_event::get_node_size;
 use crate::common::graph::Graph;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 const STEP_SIZE: usize = 1;
 const NODE_MARGIN: isize = 20;
@@ -124,6 +123,7 @@ pub fn assign_bend_points(graph: &mut Graph) {
                     .collect(),
             );
         }
+        println!("Edge from {} to {} routed", edge.from, edge.to);
     }
 }
 
