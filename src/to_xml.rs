@@ -173,7 +173,6 @@ exporterVersion="5.17.0">
     }
 
     // Add BPMN edges for sequence flows
-    // Lisa BPMN edges for sequence flows
     for edge in &graph.edges {
         bpmn.push_str(&format!(
             r#"<bpmndi:BPMNEdge id="Flow_{}_{}_di" bpmnElement="Flow_{}_{}">"#,

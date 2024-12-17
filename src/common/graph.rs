@@ -29,7 +29,7 @@ impl Graph {
     ) -> usize {
         // Generate or use provided node ID
         let node_id = id.unwrap_or_else(|| self.next_node_id());
-        
+
         // Create new node
         let node = Node::new(
             node_id,
@@ -39,7 +39,7 @@ impl Graph {
             pool_node.clone(),
             lane_node.clone(),
         );
-    
+
         // Add node to appropriate pool
         let pool_name = pool_node.unwrap_or_else(|| "default_pool".to_string());
         if let Some(pool) = self.pools.iter_mut().find(|p| p.get_pool_name() == pool_name) {
@@ -49,7 +49,7 @@ impl Graph {
             new_pool.add_node(node);
             self.pools.push(new_pool);
         }
-    
+
         node_id
     }
 
@@ -112,7 +112,7 @@ impl Graph {
         println!("Printing edges");
         for edge in &self.edges {
             println!("  Edge: {} -> {}", edge.from, edge.to);
-            
+
         }
     }
 }
