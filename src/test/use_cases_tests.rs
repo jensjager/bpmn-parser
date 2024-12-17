@@ -1,8 +1,4 @@
-use std::fs;
-use std::process::Command;
-
 use crate::common::bpmn_event::BpmnEvent;
-use crate::common::graph::Graph;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::to_xml::generate_bpmn;
@@ -31,7 +27,7 @@ X<-JoinPoint
 
     // Initialize the lexer and parser
     let lexer = Lexer::new(input);
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer).expect("Failed to create parser");
 
     // Parse the input
     let parse_result = parser.parse();
@@ -123,7 +119,7 @@ X<-JoinGateway
 
     // Initialize the lexer and parser
     let lexer = Lexer::new(input);
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer).expect("Failed to create parser");
 
     // Parse the input
     let parse_result = parser.parse();
@@ -131,7 +127,7 @@ X<-JoinGateway
         parse_result.is_ok(),
         "Parser should successfully process the UC2 input"
     );
-    let mut graph = parse_result.unwrap();
+    let graph = parse_result.unwrap();
 
     // Perform layout and generate BPMN
     // perform_layout(&mut graph);
