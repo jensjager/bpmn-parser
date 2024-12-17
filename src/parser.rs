@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use crate::lexer::{Lexer, LexerError, Token};
 use crate::common::bpmn_event::BpmnEvent;
-use crate::common::graph::Graph;
 use crate::common::edge::Edge;
+use crate::common::graph::Graph;
+use crate::lexer::{Lexer, Token};
+use std::collections::HashMap;
 
 struct ParseContext {
     last_node_id: Option<usize>,
@@ -12,7 +14,7 @@ struct ParseContext {
 }
 
 struct ParseBranching {
-    label_map: HashMap<String, Vec<(BpmnEvent,usize, Option<String>, Option<String>)>>, // Remember the events for each label <label name, (event, node id, pool, lane)>
+    label_map: HashMap<String, Vec<(BpmnEvent, usize, Option<String>, Option<String>)>>, // Remember the events for each label <label name, (event, node id, pool, lane)>
     label_end_map: HashMap<String, (String, Option<String>)>, // Remember the join label for each branch label <label name, (join label name, optional text)>
     gateway_map: HashMap<usize, Vec<(String, Option<String>)>>, // Remember the branches for each gateway <node id, (label, optional text)>
     gateway_end_map: HashMap<usize, Vec<String>>, // Remember the join labels for each gateway <node id, <join label names>>
@@ -94,9 +96,9 @@ impl<'a> Parser<'a> {
     pub fn parse(&mut self) -> Result<Graph, ParseError> {
         // Initialize the branching structure
         let mut branching = ParseBranching {
-            label_map: HashMap::new(), // (label, events)
-            label_end_map: HashMap::new(), // (label, (join label, optional text))
-            gateway_map: HashMap::new(), // (node id, labels)
+            label_map: HashMap::new(),       // (label, events)
+            label_end_map: HashMap::new(),   // (label, (join label, optional text))
+            gateway_map: HashMap::new(),     // (node id, labels)
             gateway_end_map: HashMap::new(), // (node id, <join labels>)
             gateway_types: HashMap::new(), // (node id, event)
         };

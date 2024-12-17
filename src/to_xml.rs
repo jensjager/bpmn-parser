@@ -2,6 +2,7 @@ use crate::common::bpmn_event::{BpmnEvent};
 use crate::common::bpmn_event::{get_node_size};
 use crate::common::graph::Graph;
 use crate::common::node::Node;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
 
@@ -462,9 +463,8 @@ pub fn generate_bpmn(graph: &Graph) -> String {
 
     // Add BPMN diagram elements (BPMNPlane and BPMNShape)
     bpmn.push_str(
-        r#"
-  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
+        r#"<bpmndi:BPMNDiagram id="BPMNDiagram_1">
+  <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1">
 "#,
     );
 
@@ -507,12 +507,12 @@ pub fn generate_bpmn(graph: &Graph) -> String {
             }
         }
 
-        bpmn.push_str("</bpmndi:BPMNEdge>");
+        bpmn.push_str(r#"</bpmndi:BPMNEdge>"#);
     }
 
     bpmn.push_str(
-        r#"    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
+        r#"  </bpmndi:BPMNPlane>
+</bpmndi:BPMNDiagram>
 </bpmn:definitions>
 "#,
     );
