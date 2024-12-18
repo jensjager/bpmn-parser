@@ -5,8 +5,17 @@ pub enum Token {
     Pool(String),                 // `=` for pool
     Lane(String),                 // `==` for lane
     EventStart(String),           // `#` for start event
-    EventMiddle(String),          // `#` for middle event (detected by context)
+    EventStartMessage(String),    // `#M` for start message event
+    EventStartTimer(String),      // `#T` for start timer event
+    EventStartSignal(String),     // `#S` for start signal event
+    EventStartError(String),      // `#E` for start message event
+    EventCatchMessage(String),    // `#M` for catch message event
+    EventCatchTimer(String),      // `#T` for catch timer event
+    EventCatchSignal(String),     // `#S` for catch signal event
     EventEnd(String),             // `.` for end event
+    EventEndMessage(String),      // `.M` for end message event
+    EventEndSignal(String),       // `.S` for end signal event
+    EventEndError(String),        // `.E` for end error event
     ActivityTask(String),         // `-` for task activity
     GatewayExclusive,             // `X` for gateway
     GatewayParallel,              // `+` for parallel gateway
@@ -25,6 +34,7 @@ pub enum Token {
 pub enum LexerError {
     UnexpectedCharacter(char, usize, usize, String), // character, line, column, highlight
     UnterminatedString(usize, usize, String),        // line, column, highlight
+    MissingCharacter(char, usize, usize, String),    // character, line, column, highlight
 }
 
 impl std::fmt::Display for LexerError {
@@ -35,6 +45,9 @@ impl std::fmt::Display for LexerError {
             }
             LexerError::UnterminatedString(line, col, highlight) => {
                 write!(f, "Unterminated quoted string starting at line {}, column {}\n{}", line, col, highlight)
+            }
+            LexerError::MissingCharacter(char, line, col, highlight) => {
+                write!(f, "Missing character after {} at line {}, column {}\n{}", char, line, col, highlight)
             }
         }
     }
@@ -131,14 +144,36 @@ impl<'a> Lexer<'a> {
             },
             Some('#') => {
                 self.advance(); // Skip '#'
-                let text: String = self.read_text(); // Read the text after the event symbol
-                let event_type = if !self.seen_start { // First '-' is a Start event
-                    self.seen_start = true;  // Mark that we've seen a start event
-                    Token::EventStart(text)
+                let char = self.check_char()?;
+
+                let token = if !self.seen_start {
+                    self.seen_start = true;
+                    match char {
+                        ' ' => Token::EventStart,
+                        'm' => Token::EventStartMessage,
+                        't' => Token::EventStartTimer,
+                        's' => Token::EventStartSignal,
+                        'e' => Token::EventStartError,
+                        _ => Token::EventStart,
+                    }
                 } else {
-                    Token::EventMiddle(text) // Subsequent '-' are Middle events
+                    match char {
+                        'm' => Token::EventCatchMessage,
+                        't' => Token::EventCatchTimer,
+                        's' => Token::EventCatchSignal,
+                        _ => {
+                            return Err(LexerError::UnexpectedCharacter(
+                                self.current_char.unwrap_or('\0'),
+                                self.line,
+                                self.column,
+                                self.highlight_error(),
+                            ))
+                        },
+                    }
                 };
-                Ok(event_type)
+                self.advance(); // Skip the event type character
+                let text: String = self.read_text(); // Read the text after the event symbol
+                Ok(token(text))            
             },
             Some('-') => {
                 self.advance(); // Skip '-'
@@ -154,9 +189,18 @@ impl<'a> Lexer<'a> {
             },
             Some('.') => {
                 self.advance(); // Skip '.'
+                let char = self.check_char()?;
+
+                let token = match char {
+                    ' ' => Token::EventEnd,
+                    'm' => Token::EventEndMessage,
+                    's' => Token::EventEndSignal,
+                    'e' => Token::EventEndError,
+                    _ => Token::EventStart,
+                };
                 let text: String = self.read_text(); // Read the text after the event symbol
                 self.seen_start = false; // Reset the state for the next sequence of events
-                Ok(Token::EventEnd(text))
+                Ok(token(text))  
             },
             Some('<') => {
                 self.advance(); // Skip '<'
@@ -204,13 +248,26 @@ impl<'a> Lexer<'a> {
                 }
             },
             None => Ok(Token::Eof), // End of input
-            _ => {
-                self.advance();
-                self.next_token()
-            },
+            _ => Err(LexerError::UnexpectedCharacter(
+                self.current_char.unwrap_or(' '),
+                self.line,
+                self.column,
+                self.highlight_error(),
+            )),
         }
     }
 
+    // Get the next character in the input
+    fn check_char(&mut self) -> Result<char, LexerError> {
+        let char = self
+            .current_char
+            .ok_or_else(|| LexerError::MissingCharacter('#', self.line, self.column, self.highlight_error()))?
+            .to_lowercase()
+            .next()
+            .unwrap();
+        Ok(char)
+    }
+    
     // Skip over any whitespace
     fn skip_whitespace(&mut self) {
         while let Some(c) = self.current_char {

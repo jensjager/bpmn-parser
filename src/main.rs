@@ -233,6 +233,15 @@ pub fn run_parser(input: &str) -> String {
                                 BpmnEvent::TaskScript(label) => {
                                     println!("  Script Task: {} (ID: {})", label, node.id);
                                 }
+                                BpmnEvent::CatchTimerEvent(label) => {
+                                    println!("  Catch Timer Event: {} (ID: {})", label, node.id);
+                                }
+                                BpmnEvent::CatchSignalEvent(label) => {
+                                    println!("  Catch Signal Event: {} (ID: {})", label, node.id);
+                                }
+                                BpmnEvent::CatchMessageEvent(label) => {
+                                    println!("  Catch Message Event: {} (ID: {})", label, node.id);
+                                }
                             }
                         } else {
                             println!("  No Event (ID: {})", node.id);

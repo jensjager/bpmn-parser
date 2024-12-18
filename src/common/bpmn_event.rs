@@ -24,6 +24,9 @@ pub enum BpmnEvent {
     EndTerminateEvent(String),          // Terminate end event with label
     EndEscalationEvent(String),         // Escalation end event with label
     EndCompensationEvent(String),       // Compensation end event with label
+    CatchTimerEvent(String),            // Timer catch event with label
+    CatchSignalEvent(String),           // Signal catch event with label
+    CatchMessageEvent(String),          // Message catch event with label
     BoundaryEvent(String, usize, bool),             // Boundary event with label, attached to node ID, cancel activity flag
     BoundaryErrorEvent(String, usize, bool),        // Error boundary event
     BoundaryTimerEvent(String, usize, bool),        // Timer boundary event

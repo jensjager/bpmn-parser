@@ -108,32 +108,37 @@ impl<'a> Parser<'a> {
 
         // Parse the input
         while self.context.current_token != Token::Eof {
-            // Check if a Go is active and if it's valid
-            if go_active && self.is_token_a_node(&self.context.current_token) {
+            // Save the current token and check if a Go is active
+            let current_token = self.context.current_token.clone();
+            if go_active && self.token_to_node(&current_token).is_some() {
                 return Err(ParseError::DefineNodesAfterGoError(self.lexer.line, self.lexer.highlight_error()));
             }
+
             // Match the current token and parse accordingly
-            let current_token = self.context.current_token.clone();
             match current_token {
+                // Check if the token is a non-node
                 Token::Pool(label) => self.parse_pool(&label, &mut go_active),
                 Token::Lane(label) => self.parse_lane(&label, &mut go_active),
                 Token::Go => { self.parse_go(self.context.last_node_id, &mut go_from_map, &mut go_to_map, &mut go_active)?; continue; },
-                Token::EventStart(label) => self.parse_common(BpmnEvent::Start(label)),
-                Token::EventMiddle(label) => self.parse_common(BpmnEvent::Middle(label)),
-                Token::EventEnd(label) => self.parse_common(BpmnEvent::End(label)),
-                Token::ActivityTask(label) => self.parse_common(BpmnEvent::ActivityTask(label)),
-                Token::GatewayExclusive => { self.parse_gateway(BpmnEvent::GatewayExclusive, &mut branching)?; continue; },
-                Token::GatewayParallel => { self.parse_gateway(BpmnEvent::GatewayParallel, &mut branching)?; continue; },
-                Token::GatewayInclusive => { self.parse_gateway(BpmnEvent::GatewayInclusive, &mut branching)?; continue; },
-                Token::GatewayEvent => { self.parse_gateway(BpmnEvent::GatewayEvent, &mut branching)?; continue; },
                 Token::Label(label) => self.parse_label(&mut branching, &label, &mut go_from_map, &mut go_to_map)?,
-                _ => {
-                    return Err(ParseError::UnexpectedToken(
-                        String::new(),
-                        self.context.current_token.clone(),
-                        self.lexer.line,
-                        self.lexer.highlight_error()
-                    ));
+
+                // The token should be a node
+                token => {
+                    if let Some(event) = self.token_to_node(&token) {
+                        if self.is_event_a_gateway(&event) {
+                            self.parse_gateway(event, &mut branching)?;
+                            continue;
+                        } else {
+                            self.parse_common(event);
+                        }
+                    } else {
+                        return Err(ParseError::UnexpectedToken(
+                            String::new(),
+                            self.context.current_token.clone(),
+                            self.lexer.line,
+                            self.lexer.highlight_error()
+                        ));
+                    }
                 }
             }
             self.advance()?;
@@ -347,7 +352,7 @@ impl<'a> Parser<'a> {
         while !matches!(self.context.current_token, Token::Join(_,_)) && !matches!(self.context.current_token, Token::Eof) {
             // Check if a Go is active and if it's valid
             let current_token = self.context.current_token.clone();
-            if go_active_in_label && self.is_token_a_node(&current_token) {
+            if go_active_in_label && self.token_to_node(&current_token).is_some() {
                 return Err(ParseError::DefineNodesAfterGoError(self.lexer.line, self.lexer.highlight_error()));
             }
             match &current_token {
@@ -355,45 +360,28 @@ impl<'a> Parser<'a> {
                 Token::Label(inner_label) => {
                     self.parse_label(branching, &inner_label, go_from_map, go_to_map)?;
                 }
-                Token::EventStart(label) => {
-                    events.push(self.create_event_node(BpmnEvent::Start(label.clone()))?);
-                }
-                Token::EventMiddle(label) => {
-                    events.push(self.create_event_node(BpmnEvent::Middle(label.clone()))?);
-                }
-                Token::EventEnd(label) => {
-                    events.push(self.create_event_node(BpmnEvent::End(label.clone()))?);
-                }
-                Token::ActivityTask(label) => {
-                    events.push(self.create_event_node(BpmnEvent::ActivityTask(label.clone()))?);
-                }
                 Token::Go => { 
                     let from_id = events.last().map(|event| event.1);
                     self.parse_go(from_id, go_from_map, go_to_map, &mut go_active_in_label)?; 
                     continue; 
                 },
-                Token::GatewayExclusive => {
-                    self.handle_gateway_in_label(branching, &mut events, BpmnEvent::GatewayExclusive)?;
-                    continue;
-                },
-                Token::GatewayParallel => {
-                    self.handle_gateway_in_label(branching, &mut events, BpmnEvent::GatewayParallel)?;
-                    continue;
-                },
-                Token::GatewayInclusive => {
-                    self.handle_gateway_in_label(branching, &mut events, BpmnEvent::GatewayInclusive)?;
-                    continue;
-                },
-                Token::GatewayEvent => {
-                    self.handle_gateway_in_label(branching, &mut events, BpmnEvent::GatewayEvent)?;
-                    continue;
-                },
-                _ => return Err(ParseError::UnexpectedToken(
-                    format!("in label '{}' ", label),
-                    self.context.current_token.clone(),
-                    self.lexer.line,
-                    self.lexer.highlight_error()
-                )),
+                token => {
+                    if let Some(event) = self.token_to_node(&token) {
+                        if self.is_event_a_gateway(&event) {
+                            self.handle_gateway_in_label(branching, &mut events, event)?;
+                            continue;
+                        } else {
+                            events.push(self.create_event_node(event)?);
+                        }
+                    } else {
+                        return Err(ParseError::UnexpectedToken(
+                            format!("in label '{}' ", label),
+                            self.context.current_token.clone(),
+                            self.lexer.line,
+                            self.lexer.highlight_error()
+                        ));
+                    }
+                }
             }
             self.advance()?;
         }
@@ -531,7 +519,7 @@ impl<'a> Parser<'a> {
     ) -> Result<(), ParseError> {    
         // Check that a valid node type follows
         let next_token = self.peek().unwrap();
-        if !self.is_token_a_node(&next_token) {
+        if self.token_to_node(&next_token).is_none() {
             return Err(ParseError::GoToError(
                 self.lexer.line,
                 self.lexer.highlight_error()
@@ -550,16 +538,39 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn is_token_a_node(&self, token: &Token) -> bool {
-        matches!(
-            token,
-            Token::EventStart(_)    | 
-            Token::EventMiddle(_)   | 
-            Token::EventEnd(_)      | 
-            Token::ActivityTask(_)  | 
-            Token::GatewayExclusive
-        )
-    }
+    /// Define the nodes that can be created from a token here
+    fn token_to_node(&mut self, token: &Token) -> Option<BpmnEvent> {
+        match token {
+            // Start Events
+            Token::EventStart(label) => Some(BpmnEvent::Start(label.clone())),
+            Token::EventStartMessage(label) => Some(BpmnEvent::StartMessageEvent(label.clone())),
+            Token::EventStartTimer(label) => Some(BpmnEvent::StartTimerEvent(label.clone())),
+            Token::EventStartSignal(label) => Some(BpmnEvent::StartSignalEvent(label.clone())),
+
+            // Intermediate Catch Events
+            Token::EventCatchMessage(label) => Some(BpmnEvent::CatchMessageEvent(label.clone())),
+            Token::EventCatchTimer(label) => Some(BpmnEvent::CatchTimerEvent(label.clone())),
+            Token::EventCatchSignal(label) => Some(BpmnEvent::CatchSignalEvent(label.clone())),
+
+            // End Events
+            Token::EventEnd(label) => Some(BpmnEvent::End(label.clone())),
+            Token::EventEndMessage(label) => Some(BpmnEvent::EndMessageEvent(label.clone())),
+            Token::EventEndSignal(label) => Some(BpmnEvent::EndSignalEvent(label.clone())),
+            Token::EventEndError(label) => Some(BpmnEvent::EndErrorEvent(label.clone())),
+
+            // Activities
+            Token::ActivityTask(label) => Some(BpmnEvent::ActivityTask(label.clone())),
+
+            // Gateways
+            Token::GatewayExclusive => Some(BpmnEvent::GatewayExclusive),
+            Token::GatewayParallel => Some(BpmnEvent::GatewayParallel),
+            Token::GatewayInclusive => Some(BpmnEvent::GatewayInclusive),
+            Token::GatewayEvent => Some(BpmnEvent::GatewayEvent),
+
+            // Not a node
+            _ => None,
+        }
+    }    
 
     fn is_event_a_gateway(&self, token: &BpmnEvent) -> bool {
         matches!(
