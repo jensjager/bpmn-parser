@@ -3,6 +3,7 @@ use crate::common::node::Node;
 use crate::common::pool::Pool;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 /// Reduces crossings in the graph by rearranging nodes within each layer.
 pub fn reduce_crossings<'a>(
     pools_lanes_layers: &'a mut Vec<Pool>,
@@ -24,7 +25,10 @@ fn align_connected_nodes(nodes: &mut Vec<Node>, graph: &Graph) {
     // Group nodes by layer
     let mut layer_groups: HashMap<usize, Vec<usize>> = HashMap::new();
     for (idx, node) in nodes.iter().enumerate() {
-        layer_groups.entry(node.layer_id.unwrap_or(0)).or_default().push(idx);
+        layer_groups
+            .entry(node.layer_id.unwrap_or(0))
+            .or_default()
+            .push(idx);
     }
 
     // Process each layer group

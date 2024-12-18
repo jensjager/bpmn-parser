@@ -1,6 +1,6 @@
 //lane.rs
 use crate::common::node::Node;
-
+#[derive(Clone)]
 pub struct Lane {
     lane: String,
     pub layers: Vec<Node>,
@@ -47,10 +47,6 @@ impl Lane {
             .iter_mut()
             .filter(|node| node.layer_id.unwrap_or(0) == layer_id)
             .collect()
-    }
-
-    pub fn get_node_by_id(&self, id: usize) -> Option<&Node> {
-        self.layers.iter().find(|node| node.id == id)
     }
 
     pub fn set_width(&mut self, width: f64) {

@@ -9,9 +9,7 @@ mod test;
 mod to_xml;
 use crate::read_input::read_lines;
 use crate::to_xml::generate_bpmn;
-use common::bpmn_event::BpmnEvent;
 use layout::assign_bend_points::assign_bend_points;
-use layout::crossing_minimization::reduce_crossings;
 use layout::node_positioning::assign_xy_to_nodes;
 use layout::solve_layer_assignment::solve_layer_assignment;
 use lexer::Lexer;
@@ -68,18 +66,18 @@ pub fn run_parser(input: &str) -> String {
     let lexer = Lexer::new(input);
 
     // Initialize the parser with the lexer
-    let mut parser = Parser::new(lexer);
+    let parser = Parser::new(lexer);
 
     // Parse the input and handle the result
-    match parser.parse() {
+    match parser.expect("REASON").parse() {
         Ok(mut graph) => {
             println!("Parsed BPMN Graph:");
 
-            graph.print_graph();
             solve_layer_assignment(&mut graph);
             // reduce_crossings(&mut graph, &layers);
             assign_xy_to_nodes(&mut graph);
             assign_bend_points(&mut graph);
+            graph.print_graph();
 
             // for node in &graph.nodes {
             //     if let Some(event) = &node.event {
@@ -251,9 +249,8 @@ pub fn run_parser(input: &str) -> String {
         Err(e) => {
             eprintln!("Failed to initialize parser:\n{}", e);
             e.to_string()
-        },
+        }
     }
-
 }
 
 fn convert_bpmn_to_image(output_type: String) -> Result<(), String> {

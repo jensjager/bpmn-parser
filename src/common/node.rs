@@ -9,8 +9,6 @@ pub struct Node {
     pub x_offset: Option<f64>,
     pub y: Option<f64>,
     pub y_offset: Option<f64>,
-    pub stroke_color: Option<String>,
-    pub fill_color: Option<String>,
     pub pool: Option<String>,
     pub lane: Option<String>,
     pub layer_id: Option<usize>,
@@ -37,8 +35,6 @@ impl Node {
             pool,
             lane,
             layer_id: None,
-            fill_color: None,
-            stroke_color: None,
             crosses_lanes: false,
             to_node_id: None,
         }
@@ -49,21 +45,6 @@ impl Node {
         self.y = Some(y);
         self.x_offset = Some(x_offset);
         self.y_offset = Some(y_offset);
-    }
-
-    pub fn set_layer_id(&mut self, layer_id: usize) {
-        self.layer_id = Some(layer_id);
-    }
-
-    pub fn get_center(&self) -> (f64, f64) {
-        let x = self.x.unwrap_or(0.0);
-        let y = self.y.unwrap_or(0.0);
-        let y_offset = self.y_offset.unwrap_or(0.0);
-        let (width, height) = get_node_size(&self.event.as_ref().unwrap());
-        let center_x = x + width as f64 / 2.0;
-        let center_y = y + height as f64 / 2.0 + y_offset;
-
-        (center_x, center_y)
     }
 }
 

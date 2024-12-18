@@ -2,6 +2,7 @@
 use crate::common::lane::Lane;
 use crate::common::node::Node;
 use std::collections::HashMap;
+#[derive(Clone)]
 pub struct Pool {
     pool_name: String,
     pub lanes: Vec<Lane>,
@@ -37,10 +38,6 @@ impl Pool {
         }
     }
 
-    pub fn add_lane(&mut self, lane: Lane) {
-        self.lanes.push(lane);
-    }
-
     pub fn get_lanes(&self) -> &Vec<Lane> {
         &self.lanes
     }
@@ -51,15 +48,6 @@ impl Pool {
 
     pub fn get_pool_name(&self) -> String {
         self.pool_name.clone()
-    }
-
-    pub fn get_node_by_id(&self, id: usize) -> Option<&Node> {
-        for lane in &self.lanes {
-            if let Some(node) = lane.get_node_by_id(id) {
-                return Some(node);
-            }
-        }
-        None
     }
 
     pub fn get_nodes_by_id(&self) -> HashMap<usize, Node> {

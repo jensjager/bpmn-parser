@@ -31,7 +31,6 @@ impl Graph {
         // Generate or use provided node ID
         let node_id = id.unwrap_or_else(|| self.next_node_id());
 
-
         // Create new node
         let node = Node::new(
             node_id,
@@ -41,7 +40,6 @@ impl Graph {
             pool_node.clone(),
             lane_node.clone(),
         );
-
 
         // Add node to appropriate pool
         let pool_name = pool_node.unwrap_or_default();
@@ -66,14 +64,6 @@ impl Graph {
 
     pub fn get_pools_mut(&mut self) -> &mut Vec<Pool> {
         &mut self.pools
-    }
-
-    pub fn take_edges(&mut self) -> Vec<Edge> {
-        std::mem::take(&mut self.edges)
-    }
-
-    pub fn set_edges(&mut self, edges: Vec<Edge>) {
-        self.edges = edges;
     }
 
     /// Adds an edge to the graph.
@@ -118,11 +108,12 @@ impl Graph {
                 println!("  Lane: {}", lane.get_lane());
                 for node in lane.get_layers() {
                     println!(
-                        "    Node: {}, x: {}, y: {}, y_offset: {}",
+                        "    Node: {}, x: {}, y: {}, y_offset: {}, layer_id: {}",
                         node.id,
                         node.x.unwrap_or(0.0),
                         node.y.unwrap_or(0.0),
-                        node.y_offset.unwrap_or(0.0)
+                        node.y_offset.unwrap_or(0.0),
+                        node.layer_id.unwrap_or(0)
                     );
                 }
             }
