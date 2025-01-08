@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_1"
+    targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler"
+    exporterVersion="5.17.0">
+  <bpmn:process id="Process_0" isExecutable="true">
+    <bpmn:startEvent id="Node_0" name="Start Event">
+      <bpmn:outgoing>Flow_0</bpmn:outgoing>
+
+    </bpmn:startEvent>
+    <bpmn:task id="Node_1" name="Middle Task">
+      <bpmn:incoming>Flow_0</bpmn:incoming>
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+
+    </bpmn:task>
+    <bpmn:endEvent id="Node_2" name="End Event">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_0" sourceRef="Node_0" targetRef="Node_1" />
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Node_1" targetRef="Node_2" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_0">
+      <bpmndi:BPMNShape id="Participant_0_di" bpmnElement="Participant_0" isHorizontal="true" isExpanded="true">
+        <dc:Bounds x="100.00" y="100.00" width="630.00" height="180.00" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_0_di" bpmnElement="Lane_0" isHorizontal="true">
+        <dc:Bounds x="130.00" y="100.00" width="600.00" height="180.00" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Node_0_di" bpmnElement="Node_0" >
+        <dc:Bounds x="212.00" y="172.00" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Node_1_di" bpmnElement="Node_1" >
+        <dc:Bounds x="330.00" y="150.00" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Node_2_di" bpmnElement="Node_2" >
+        <dc:Bounds x="512.00" y="172.00" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_0_di" bpmnElement="Flow_0">
+        <di:waypoint x="248.00" y="190.00" />
+        <di:waypoint x="268.00" y="190.00" />
+        <di:waypoint x="278.00" y="190.00" />
+        <di:waypoint x="288.00" y="190.00" />
+        <di:waypoint x="298.00" y="190.00" />
+        <di:waypoint x="308.00" y="190.00" />
+        <di:waypoint x="330.00" y="190.00" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="430.00" y="190.00" />
+        <di:waypoint x="450.00" y="190.00" />
+        <di:waypoint x="460.00" y="190.00" />
+        <di:waypoint x="470.00" y="190.00" />
+        <di:waypoint x="480.00" y="190.00" />
+        <di:waypoint x="490.00" y="190.00" />
+        <di:waypoint x="512.00" y="190.00" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

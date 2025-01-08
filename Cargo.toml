@@ -1,8 +1,18 @@
+cargo-features = ["profile-rustflags"]
+
 [package]
 name = "bpmn-parser"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+clap = { version = "4.5.23", features = ["derive"] }
 good_lp = { version = "1.8.1" }
 svg = "0.18.0"
+thiserror = "2.0.8"
+peg = "0.8"
+chic = "1.2"
+annotate-snippets = "0.11"
+
+[profile.test]
+rustflags = ["-Adead_code", "-Aunused_variables", "-Aunused_imports"]

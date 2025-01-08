@@ -1,0 +1,16 @@
+= Pool A // <1>
+
+== Lane 1 // <2>
+
+# Start 1
+. End 1
+
+== Lane 2
+
+# Start 2
+. End 2
+
+= Pool B // <3>
+
+# Start B
+. End B

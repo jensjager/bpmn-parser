@@ -3,133 +3,80 @@ use crate::common::bpmn_event::BpmnEvent;
 use crate::common::edge::Edge;
 use crate::common::node::Node;
 use crate::common::pool::Pool;
+use std::fmt;
 
 /// Represents a graph consisting of nodes and edges.
-#[derive(Clone)]
+#[derive(Default)]
 pub struct Graph {
-    pub pools: Vec<Pool>,    // Pools
-    pub edges: Vec<Edge>,    // Edges
-    pub last_node_id: usize, // Last used node ID
+    /// Nodes shall only be added to this Vec, but the order shall not be modified.
+    /// Otherwise NodeIds will point to the wrong nodes.
+    pub nodes: Vec<Node>,
+    /// Edges shall only be added to this Vec, but the order shall not be modified.
+    /// Otherwise EdgeIds will point to the wrong edges.
+    pub edges: Vec<Edge>,
+    pub pools: Vec<Pool>,
+}
+
+/// A Newtype to make sure that code outside of the module does not modify its value.
+/// The invariant is that every created NodeId does point to some existing node.
+#[derive(PartialEq, Default, Clone, Debug, Copy, Hash, Eq)]
+pub struct NodeId(pub usize);
+
+#[derive(PartialEq, Default, Clone, Debug, Copy, Hash, Eq)]
+pub struct EdgeId(pub usize);
+
+impl fmt::Display for NodeId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 impl Graph {
-    pub fn new() -> Self {
-        Graph {
-            pools: Vec::new(),
-            edges: Vec::new(),
-            last_node_id: 0,
-        }
-    }
-
+    /// Returns the node_id parameter for convenience on the caller side.
     pub fn add_node(
         &mut self,
         bpmn_event: BpmnEvent,
-        id: Option<usize>,
-        pool_node: Option<String>,
-        lane_node: Option<String>,
-    ) -> usize {
-        // Generate or use provided node ID
-        let node_id = id.unwrap_or_else(|| self.next_node_id());
+        pool: Option<String>,
+        lane: Option<String>,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
 
-
-        // Create new node
-        let node = Node::new(
-            node_id,
-            None,
-            None,
-            Some(bpmn_event),
-            pool_node.clone(),
-            lane_node.clone(),
-        );
-
-
-        // Add node to appropriate pool
-        let pool_name = pool_node.unwrap_or_default();
-        if let Some(pool) = self
-            .pools
-            .iter_mut()
-            .find(|p| p.get_pool_name() == pool_name)
-        {
-            pool.add_node(node);
+        // Add node ID to the pool and lane stuff
+        if let Some(pool) = self.pools.iter_mut().find(|l| l.pool_name == pool) {
+            pool.add_node(lane.clone(), node_id);
         } else {
-            let mut new_pool = Pool::new(pool_name);
-            new_pool.add_node(node);
+            let mut new_pool = Pool::new(pool.clone());
+            new_pool.add_node(lane.clone(), node_id);
             self.pools.push(new_pool);
         }
+
+        self.nodes.push(Node {
+            id: node_id,
+            event: Some(bpmn_event),
+            pool,
+            lane,
+            ..Default::default()
+        });
 
         node_id
     }
 
-    pub fn get_pools(&self) -> &Vec<Pool> {
-        &self.pools
-    }
-
-    pub fn get_pools_mut(&mut self) -> &mut Vec<Pool> {
-        &mut self.pools
-    }
-
-    pub fn take_edges(&mut self) -> Vec<Edge> {
-        std::mem::take(&mut self.edges)
-    }
-
-    pub fn set_edges(&mut self, edges: Vec<Edge>) {
-        self.edges = edges;
-    }
-
     /// Adds an edge to the graph.
-    pub fn add_edge(&mut self, edge: Edge) {
-        self.edges.push(edge);
+    pub fn add_edge(&mut self, from: NodeId, to: NodeId, text: Option<String>) -> EdgeId {
+        let edge_id = EdgeId(self.edges.len());
+        self.edges.push(Edge {
+            from,
+            to,
+            text,
+            bend_points: None, // Alguses tühi, määratakse assign_bend_points-s
+        });
+
+        self.nodes[from.0].outgoing.push(edge_id);
+        self.nodes[to.0].incoming.push(edge_id);
+        edge_id
     }
 
-    // Get the next node ID.
-    pub fn next_node_id(&mut self) -> usize {
-        self.last_node_id += 1; // Increment the last used ID
-        self.last_node_id // Return the new ID
-    }
-
-    pub fn get_node_by_id(&self, id: usize) -> Option<&Node> {
-        for pool in &self.pools {
-            for lane in pool.get_lanes() {
-                for node in lane.get_layers() {
-                    if node.id == id {
-                        return Some(node);
-                    }
-                }
-            }
-        }
-        println!("Node with id {} not found", id);
-        None
-    }
-
-    pub fn get_nodes_by_pool_name(&self, pool_name: &str) -> Vec<&Node> {
-        self.pools
-            .iter()
-            .flat_map(|pool| pool.get_lanes())
-            .flat_map(|lane| lane.get_layers())
-            .filter(|node| node.pool.as_deref() == Some(pool_name))
-            .collect()
-    }
-
-    pub fn print_graph(&self) {
-        println!("Printing Graph");
-        for pool in &self.pools {
-            println!("Pool: {}", pool.get_pool_name());
-            for lane in pool.get_lanes() {
-                println!("  Lane: {}", lane.get_lane());
-                for node in lane.get_layers() {
-                    println!(
-                        "    Node: {}, x: {}, y: {}, y_offset: {}",
-                        node.id,
-                        node.x.unwrap_or(0.0),
-                        node.y.unwrap_or(0.0),
-                        node.y_offset.unwrap_or(0.0)
-                    );
-                }
-            }
-        }
-        println!("Printing edges");
-        for edge in &self.edges {
-            println!("  Edge: {} -> {}", edge.from, edge.to);
-        }
+    pub fn get_nodes_by_pool_name(&self, pool_name: Option<String>) -> Vec<&Node> {
+        self.nodes.iter().filter(|n| n.pool == pool_name).collect()
     }
 }

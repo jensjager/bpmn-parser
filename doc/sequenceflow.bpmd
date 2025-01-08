@@ -1,0 +1,11 @@
+= Pool
+
+== Lane A
+
+# Start
+F ->cont // <1>
+
+== Lane B
+
+F <-cont // <2>
+. End

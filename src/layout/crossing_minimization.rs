@@ -1,30 +1,31 @@
+use crate::common::edge::Edge;
 use crate::common::graph::Graph;
+use crate::common::graph::NodeId;
 use crate::common::node::Node;
-use crate::common::pool::Pool;
 use std::collections::HashMap;
 
 /// Reduces crossings in the graph by rearranging nodes within each layer.
-pub fn reduce_crossings<'a>(
-    pools_lanes_layers: &'a mut Vec<Pool>,
-    graph: &'a Graph,
-) -> &'a Vec<Pool> {
-    for pool in &mut *pools_lanes_layers {
-        for lane in pool.get_lanes_mut() {
-            align_connected_nodes(lane.get_layers_mut(), graph);
-        }
-    }
-    pools_lanes_layers
+pub fn reduce_crossings(_: &mut Graph) {
+    //for pool in &mut graph.pools {
+        //for lane in &mut pool.lanes {
+            //align_connected_nodes(&mut lane.layers, &graph.edges);
+        //}
+    //}
 }
 
 /// Align nodes that are connected and share the same layer by their layer ID
-fn align_connected_nodes(nodes: &mut Vec<Node>, graph: &Graph) {
-    let mut x_position_map: HashMap<usize, f64> = HashMap::new();
+#[allow(unused)]
+fn align_connected_nodes(nodes: &mut Vec<Node>, edges: &[Edge]) {
+    let mut x_position_map: HashMap<NodeId, f64> = HashMap::new();
     let mut x_position = 0.0;
 
     // Group nodes by layer
     let mut layer_groups: HashMap<usize, Vec<usize>> = HashMap::new();
     for (idx, node) in nodes.iter().enumerate() {
-        layer_groups.entry(node.layer_id.unwrap_or(0)).or_default().push(idx);
+        layer_groups
+            .entry(node.layer_id.unwrap_or(0))
+            .or_default()
+            .push(idx);
     }
 
     // Process each layer group
@@ -41,7 +42,7 @@ fn align_connected_nodes(nodes: &mut Vec<Node>, graph: &Graph) {
             for &j in indices.iter().filter(|&&j| j > i) {
                 let node_b = nodes[j].id;
 
-                let has_edge = graph.edges.iter().any(|edge| {
+                let has_edge = edges.iter().any(|edge| {
                     (edge.from == node_a && edge.to == node_b)
                         || (edge.from == node_b && edge.to == node_a)
                 });

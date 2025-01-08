@@ -1,151 +1,49 @@
-# BPMN DSL Documentation
+# BPMN DSL - BPMD
 
-This README provides an overview of the Domain-Specific Language (DSL) used for defining BPMN flows. The syntax enables the creation of tasks, events, and branching processes with labeled joins.
+BPMD is a language and its compiler to create `.xml` BPMN diagrams from human-writable text files.
+The goal is to that the creator can concentrate mostly on the semantics of the business process, whereas the tool computes at what location each component and end bendpoint should be located.
+*This project is in a PoC stage and is missing most features which are required for serious usage.*
 
-## Introduction
+```
+= This is a Pool
+== This is a Lane
 
-This DSL allows users to define business processes using a simplified syntax. The flow structure consists of tasks, start/middle events, end events, and branching/merging points. It supports labeled branches and joins, enabling complex workflows to be modeled concisely.
+# Start Event
+X I am an exclusive Gateway ->one-branch"Let's Go here" ->the-other-branch"No, here!"
+
+G <-one-branch
+- Wonderful Task
+G ->we-are-done
+
+G <-the-other-branch
+- Inspiring Task
+G ->we-are-done
+
+X <-we-are-done
+. Have Some Rest
+```
+
+## Why could this be useful?
+
+This tool tries to fall into the same niche as PlantUML and similar tools. The target group is (probably) primarily users which are home in text files. A couple of (subjective) benefits:
+
+* Author can focus on content rather than Layout - an okayish layout is calculated automatically
+* Later changes to the process, like adding a task activity somewhere in the middle, don't require a full (manual) rework of the surrounding layout.
+* Better integration with version control systems:
+  * The syntax aims to split the process description from layout tweaks. Meaning that a diffs are more meaningful (one can rather concentrate on the changes of the process than on layout peculiarities)
+* Any advantage which text files bring over binary files (like one can stay within one's beloved text editor / IDE to code, document and create diagrams without mouse interruptions)
 
 ## DSL Syntax Overview
 
-### Symbols & Meanings
+The syntax is explained in [doc/doc.html](doc/doc.html).
 
-- **`=`** : Represents a **pool** in the flow.
-  - Example:
-    `= Pool` – Defines a pool called `Pool`.
+## Dependencies
 
-- **`==`** : Represents a **lane** in the flow.
-  - Example:
-    `== Lane` – Defines a lane called `Lane`.
+* TODO: Write about the cbc solver dependency. Also try to replace this with a pure Rust solver at some point.
+* `bpmn-to-image`: The compiler within this repository only creates the `.xml` representation. If you want a `.png` file, you can use `bpmn-to-image` for that. In the `./doc` directory, run `npm install` and look into the `doc/build.sh` script to see how to use it.
 
-- **`#`** : Denotes a **start event** or **middle event** in the process.
-  - Example:
-    `# StartEvent` – Defines the start of the process called `StartEvent`.
-    `# MiddleEvent` – Defines a middle event called `MiddleEvent`.
+## Usage
 
-- **`-`** : Represents a **task** in the flow.
-  - Example:
-    `- TaskName` – Defines a task called `TaskName`.
+Use `cargo run --release -- --help` to see how to use the tool.
 
-- **`.`** : Indicates an **end event**, signaling the completion of the process.
-  - Example:
-    `. EndEvent` – Marks the end of the process.
-
-- **`X ->label`** : Declares a **(Diverging) Exclusive Gateway**, which is a branching point, with each branch labeled after `->`. You can also add optional text for the edge enclosed in quotes.
-  - Example:
-    `X ->Branch "Optional text"`
-
-- **`O ->label`** : Declares a **(Diverging) Inclusive Gateway**, which is a branching point, with each branch labeled after `->`. You can also add optional text for the edge enclosed in quotes.
-  - Example:
-    `O ->Branch "Optional text"`
-
-- **`+ ->label`** : Declares a **(Diverging) Parallel Gateway**, which is a branching point, with each branch labeled after `->`. You can also add optional text for the edge enclosed in quotes.
-  - Example:
-    `+ ->Branch "Optional text"`
-
-- **`* ->label`** : Declares a **(Diverging) Event Gateway**, which is a branching point, with each branch labeled after `->`. You can also add optional text for the edge enclosed in quotes.
-  - Example:
-    `* ->Branch "Optional text"`
-
-- **`X <-label`** : Declares a **(Converging) Exclusive Gateway**, which is used to indicate to which label should the last node join to the converging exclusive gateway.
-  - Example:
-    `X <-endLabel`
-
-- **`O <-label`** : Declares a **(Converging) Inclusive Gateway**, which is used to indicate to which label should the last node join to the converging inclusive gateway.
-  - Example:
-    `O <-endLabel`
-
-- **`+ <-label`** : Declares a **(Converging) Parallel Gateway**, which is used to indicate to which label should the last node join to the converging parallel gateway.
-  - Example:
-    `+ <-endLabel`
-
-- **`* <-label`** : Declares a **(Converging) Event Gateway**, which is used to indicate to which label should the last node join to the converging event gateway.
-  - Example:
-    `* <-endLabel`
-
-- **`label:`** : Declares a **label**, which is defined by ending with a colon `:`. The label has to include at least one node and a join operator. Labels are used to define a branch.
-  - Example:
-  `Branch1:`
-  `- Task1`
-  `- Task2`
-  `J endLabel`
-
-- **`J label`** : Marks a **join operator**, indicating where a branch should merge. You must specify a label. If a join is not wanted, give it a join label that is not used anywhere.
-  - Example:
-    `J endLabel`
-
-- **`G ->label`** : Declares a **Go (from) operator**, which is used to indicate from which node should a edge start. The edge starts from the previous node so you cannot use it before defining a node beforehand. Also you must define a label for the `G` operator.
-  - Example:
-    `- Start node`
-    `G ->jump`
-
-- **`G <-label`** : Declares a **Go (to) operator**, which is used to indicate to which node should a edge end. The edge ends to the next node you define so you cannot use it for the final line. Also you must define a label for the `G` operator.
-  - Example:
-    `G <-jump`
-    `- End node`
-
-### Branching Example
-
-```plaintext
-# Start Event
-X ->above"Go Here" ->below"No, here!"
-
-above:
-- Above
-J endjoin
-
-below:
-- And beyond
-J endjoin
-
-X <-endjoin
-. End Event
-```
-
-### Pools & Lanes Example
-
-```plaintext
-= Pool
-== Lane1
-# Start Event
-- Task1
-. End Event
-== Lane2
-# Start Event2
-- Task2
-. End Event 2
-```
-
-### Go operator example
-
-```plaintext
-= Pool
-== Lane1
-# Start Event
-- Task
-G ->jump
-== Lane2
-G <-jump
-- Task
-. End Event
-```
-
-
-# Dependencies
-To convert BPMN diagrams to images, you need to install the `bpmn-to-image` tool.
-
-### Installation
-
-To install `bpmn-to-image`, you can use npm:
-
-```sh
-npm install bpmn-to-image
-```
-
-### Usage
-To use `bpmn-to-image`, you need to provide the input file and specify the output format (pdf, svg, or png) as the second argument.
-
-Example:
-```sh
-bpmn-parser input.txt png
-```
+Basic usage: `cargo run --release -- -i file.bpmd -o file.bpmn`

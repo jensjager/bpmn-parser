@@ -1,0 +1,11 @@
+* Add more checks for the correctness of the BPMN semantics:
+  * Check that the gateway branching and joining nodes match (use a dedicated graph analysis phase, not in the parser)
+  * (TODO what else? likely a lot)
+* Syntax for cross-pool message sending
+* Syntax for all kinds of events and boundary events
+* Crossing minimization
+* ILP based edge routing (with modifications for north and south ports)
+* Plugin integration
+* Better documentation of the math in each step
+* ...
+* Maybe implement a custom BPMN renderer?

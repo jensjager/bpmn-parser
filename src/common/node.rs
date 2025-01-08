@@ -1,9 +1,11 @@
 // node.rs
 use crate::common::bpmn_event::*;
+use crate::common::graph::EdgeId;
+use crate::common::graph::NodeId;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Node {
-    pub id: usize,
+    pub id: NodeId,
     pub event: Option<BpmnEvent>,
     pub x: Option<f64>,
     pub x_offset: Option<f64>,
@@ -14,36 +16,18 @@ pub struct Node {
     pub pool: Option<String>,
     pub lane: Option<String>,
     pub layer_id: Option<usize>,
-    pub crosses_lanes: bool,
-    pub to_node_id: Option<usize>,
+
+    // TODO is this actually really used? Was set in solve_layer_assignment but
+    // not read anywhere.
+    //pub crosses_lanes: bool,
+    //pub to_node_id: Option<NodeId>,
+
+    // TODO do sequence flow edges, message edges and data object edges be stored differently?
+    pub incoming: Vec<EdgeId>,
+    pub outgoing: Vec<EdgeId>,
 }
 
 impl Node {
-    pub fn new(
-        id: usize,
-        x: Option<f64>,
-        y: Option<f64>,
-        event: Option<BpmnEvent>,
-        pool: Option<String>,
-        lane: Option<String>,
-    ) -> Self {
-        Node {
-            id,
-            x,
-            x_offset: Some(0.0),
-            y,
-            y_offset: Some(0.0),
-            event,
-            pool,
-            lane,
-            layer_id: None,
-            fill_color: None,
-            stroke_color: None,
-            crosses_lanes: false,
-            to_node_id: None,
-        }
-    }
-
     pub fn set_position(&mut self, x: f64, y: f64, x_offset: f64, y_offset: f64) {
         self.x = Some(x);
         self.y = Some(y);

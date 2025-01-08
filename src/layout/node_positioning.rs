@@ -1,3 +1,4 @@
+use crate::common::graph::NodeId;
 use crate::common::{bpmn_event::get_node_size, graph::Graph, lane::Lane, node::Node};
 use std::collections::HashMap;
 
@@ -11,28 +12,29 @@ pub fn assign_xy_to_nodes(graph: &mut Graph) {
     let mut lane_position_y = 100.0;
     let node_x_start = lane_position_x + 50.0;
 
-    let mut original_positions: HashMap<usize, f64> = HashMap::new();
+    let mut original_positions: HashMap<NodeId, f64> = HashMap::new();
 
     {
-        let pools = graph.get_pools_mut();
+        let pools = &mut graph.pools;
         for pool in pools {
             let mut pool_height = 0.0;
             let mut lane_width = 0.0;
-            for lane in pool.get_lanes_mut() {
-                lane.sort_nodes_by_layer_id();
-                let max_height = find_max_nodes_in_layer(lane.get_layers()) * 100 + 100;
+            for lane in &mut pool.lanes {
+                lane.sort_nodes_by_layer_id(&graph.nodes);
+                let max_height = find_max_nodes_in_layer(&lane.lane, &graph.nodes) * 100 + 80;
                 pool_height += max_height as f64;
-                lane.set_height(max_height as f64);
-                let new_lane_width = get_lane_width(lane);
+                lane.height = Some(max_height as f64);
+                let new_lane_width = get_lane_width(lane, &graph.nodes);
                 if new_lane_width > lane_width {
                     lane_width = new_lane_width;
                 }
 
-                for layer_index in 0..lane.get_layers().len() {
+                for layer_index in 0..lane.nodes.len() {
                     let x = node_x_start + (layer_index as f64 * layer_width);
                     let mut y_layer_position = node_position_y;
                     {
-                        let nodes_for_this_layer = lane.get_nodes_by_layer_id_mut(layer_index);
+                        let nodes_for_this_layer =
+                            lane.get_nodes_by_layer_id(layer_index, &mut graph.nodes);
                         for node in nodes_for_this_layer {
                             let (node_size_x, node_size_y) =
                                 get_node_size(node.event.as_ref().unwrap());
@@ -49,59 +51,57 @@ pub fn assign_xy_to_nodes(graph: &mut Graph) {
                             let old_y = node.y.unwrap_or(y_layer_position);
                             node.set_position(x, old_y, x_offset, y_offset);
                             original_positions.insert(node.id, x);
-                            y_layer_position += node_size_y as f64 + 50.0;
+                            y_layer_position += 100.0;
                         }
                     }
                 }
 
                 node_position_y += max_height as f64;
-                lane.set_position(lane_position_x, lane_position_y);
+                lane.x = Some(lane_position_x);
+                lane.y = Some(lane_position_y);
                 lane_position_y += max_height as f64;
             }
 
             if lane_width > pool.width.unwrap_or(0.0) {
-                pool.set_width(lane_width + lane_x_offset);
+                pool.width = Some(lane_width + lane_x_offset);
             }
-            pool.set_height(pool_height);
-            pool.set_position(pool_position_x, pool_position_y);
+            pool.height = Some(pool_height);
+            pool.x = Some(pool_position_x);
+            pool.y = Some(pool_position_y);
             pool_position_y += pool_height;
             pool.set_lane_width(lane_width);
         }
 
-        let mut lane_change_new_x: HashMap<usize, f64> = HashMap::new();
+        let mut lane_change_new_x: HashMap<NodeId, f64> = HashMap::new();
         {
             let edges = &graph.edges;
             for edge in edges {
-                if let (Some(to_node), Some(from_node)) = (
-                    graph.get_node_by_id(edge.to),
-                    graph.get_node_by_id(edge.from),
-                ) {
-                    if from_node.lane != to_node.lane {
-                        if let Some(fx) = from_node.x {
-                            lane_change_new_x.insert(to_node.id, fx);
-                        }
+                let to_node = &graph.nodes[edge.to.0];
+                let from_node = &graph.nodes[edge.from.0];
+                if from_node.lane != to_node.lane {
+                    if let Some(fx) = from_node.x {
+                        lane_change_new_x.insert(to_node.id, fx);
                     }
                 }
             }
         }
 
-        let mut lane_shifts: HashMap<(String, String), Vec<(usize, usize, f64)>> = HashMap::new();
+        let mut lane_shifts: HashMap<(Option<String>, Option<String>), Vec<(usize, NodeId, f64)>> =
+            HashMap::new();
 
         {
-            let pools = graph.get_pools();
-            for pool in pools {
-                for lane in pool.get_lanes() {
-                    let layer_nodes = lane.get_layers();
-                    for (index, node) in layer_nodes.iter().enumerate() {
-                        if let Some(&new_x) = lane_change_new_x.get(&node.id) {
-                            if let Some(&old_x) = original_positions.get(&node.id) {
+            for pool in &graph.pools {
+                for lane in &pool.lanes {
+                    let layer_nodes = &lane.nodes;
+                    for (index, node_id) in layer_nodes.iter().enumerate() {
+                        if let Some(&new_x) = lane_change_new_x.get(&node_id) {
+                            if let Some(&old_x) = original_positions.get(&node_id) {
                                 let dx = new_x - old_x;
                                 if dx.abs() > f64::EPSILON {
-                                    let key = (pool.get_pool_name(), lane.get_lane().clone());
                                     lane_shifts
-                                        .entry(key)
+                                        .entry((pool.pool_name.clone(), lane.lane.clone()))
                                         .or_default()
-                                        .push((index, node.id, dx));
+                                        .push((index, *node_id, dx));
                                 }
                             }
                         }
@@ -116,17 +116,13 @@ pub fn assign_xy_to_nodes(graph: &mut Graph) {
         }
 
         {
-            let pools = graph.get_pools_mut();
-            for pool in pools {
-                let pool_name = pool.get_pool_name().to_string(); // Salvestame pooli nime ette
-                for lane in pool.get_lanes_mut() {
-                    let lane_name = lane.get_lane().clone(); // Salvestame lane'i nime ette
-                    let key = (pool_name.clone(), lane_name);
+            for pool in &mut graph.pools {
+                for lane in &mut pool.lanes {
+                    let key = (pool.pool_name.clone(), lane.lane.clone());
                     if let Some(mut changes) = lane_shifts.get(&key).cloned() {
                         changes.sort_by_key(|c| c.0);
 
-                        let layer_nodes = lane.get_layers();
-                        let len = layer_nodes.len();
+                        let len = lane.nodes.len();
                         let mut dx_map: Vec<f64> = vec![0.0; len];
 
                         for (node_index, _node_id, dx) in changes {
@@ -139,15 +135,14 @@ pub fn assign_xy_to_nodes(graph: &mut Graph) {
                             dx_map[i] += dx_map[i - 1];
                         }
 
-                        let lane_nodes_mut = lane.get_layers_mut();
-                        for i in 0..len {
-                            if dx_map[i].abs() > f64::EPSILON {
-                                let node = &mut lane_nodes_mut[i];
+                        for (node_id, dx) in lane.nodes.iter().zip(dx_map) {
+                            if dx.abs() > f64::EPSILON {
+                                let node = &mut graph.nodes[node_id.0];
                                 let old_x = node.x.unwrap_or(0.0);
                                 let old_y = node.y.unwrap_or(0.0);
                                 let old_y_off = node.y_offset.unwrap_or(0.0);
                                 let old_x_off = node.x_offset.unwrap_or(0.0);
-                                node.set_position(old_x + dx_map[i], old_y, old_x_off, old_y_off);
+                                node.set_position(old_x + dx, old_y, old_x_off, old_y_off);
                             }
                         }
                     }
@@ -157,13 +152,15 @@ pub fn assign_xy_to_nodes(graph: &mut Graph) {
     }
 }
 
-fn find_max_nodes_in_layer(nodes: &Vec<Node>) -> usize {
+fn find_max_nodes_in_layer(lane: &Option<String>, nodes: &[Node]) -> usize {
     let mut max = 0;
     let mut cur_max = 0;
     let mut current_layer_id = 0;
 
     for node in nodes {
-        println!("Node max: {}", node.layer_id.as_ref().unwrap());
+        if node.lane != *lane {
+            continue;
+        }
         if node.layer_id.unwrap_or(0) != current_layer_id {
             current_layer_id = node.layer_id.unwrap_or(0);
             if cur_max > max {
@@ -175,12 +172,11 @@ fn find_max_nodes_in_layer(nodes: &Vec<Node>) -> usize {
             cur_max += 1;
         }
     }
-    println!("Max nodes found: {}", max);
     max
 }
 
-fn get_lane_width(lane: &Lane) -> f64 {
-    let last_node = lane.get_layers().last().unwrap();
+fn get_lane_width(lane: &Lane, nodes: &[Node]) -> f64 {
+    let last_node = &nodes[lane.nodes.last().unwrap().0];
     let last_layer = last_node.layer_id.unwrap_or(0);
     println!("last_layer: {}", last_layer);
     if last_layer == 0 || last_layer == 1 {

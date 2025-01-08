@@ -1,0 +1,15 @@
+# Start Event
+X ->above"Go Here" ->below"No, here!" // <1>
+
+// <2>
+
+G <-above // <3>
+- Above
+G ->endjoin // <4>
+
+G <-below // <3>
+- And beyond
+G ->endjoin // <4>
+
+X <-endjoin // <3>
+. Finish.

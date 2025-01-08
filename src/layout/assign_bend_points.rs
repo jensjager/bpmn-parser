@@ -1,5 +1,6 @@
 use crate::common::bpmn_event::get_node_size;
 use crate::common::graph::Graph;
+use crate::common::graph::NodeId;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
 
@@ -12,38 +13,34 @@ pub fn assign_bend_points(graph: &mut Graph) {
 
     // HashMap to store coordinates of obstacles with node id as key
     // HashMap stores tuples of top left and bottom right coordinates of obstacles
-    let mut matrix: HashMap<usize, (usize, usize, usize, usize)> = HashMap::new();
+    let mut matrix: HashMap<NodeId, (usize, usize, usize, usize)> = HashMap::new();
 
-    for pool in graph.pools.iter() {
-        for lane in pool.lanes.iter() {
-            for node in lane.layers.iter() {
-                if let (Some(x), Some(y), Some(x_offset), Some(y_offset)) =
-                    (node.x, node.y, node.x_offset, node.y_offset)
-                {
-                    let (width, height) = get_node_size(node.event.as_ref().unwrap());
-                    let x2 = x as usize + width as usize + x_offset as usize;
-                    let y2 = y as usize + height as usize + y_offset as usize;
-                    if x2 > matrix_width {
-                        matrix_width = x2 + 50;
-                    }
-                    if y2 > matrix_height {
-                        matrix_height = y2 + 50;
-                    }
-                    matrix.insert(
-                        node.id.clone(),
-                        (
-                            x as usize + x_offset as usize - NODE_MARGIN as usize,
-                            y as usize + y_offset as usize - NODE_MARGIN as usize,
-                            x2 + NODE_MARGIN as usize,
-                            y2 + NODE_MARGIN as usize,
-                        ),
-                    );
-                }
+    for node in &graph.nodes {
+        if let (Some(x), Some(y), Some(x_offset), Some(y_offset)) =
+            (node.x, node.y, node.x_offset, node.y_offset)
+        {
+            let (width, height) = get_node_size(node.event.as_ref().unwrap());
+            let x2 = x as usize + width as usize + x_offset as usize;
+            let y2 = y as usize + height as usize + y_offset as usize;
+            if x2 > matrix_width {
+                matrix_width = x2 + 50;
             }
+            if y2 > matrix_height {
+                matrix_height = y2 + 50;
+            }
+            matrix.insert(
+                node.id.clone(),
+                (
+                    x as usize + x_offset as usize - NODE_MARGIN as usize,
+                    y as usize + y_offset as usize - NODE_MARGIN as usize,
+                    x2 + NODE_MARGIN as usize,
+                    y2 + NODE_MARGIN as usize,
+                ),
+            );
         }
     }
 
-    for edge in graph.edges.iter_mut() {
+    for edge in &mut graph.edges {
         let (from_x, from_y, from_x2, from_y2) = matrix.get(&edge.from).unwrap();
         let (to_x, to_y, to_x2, to_y2) = matrix.get(&edge.to).unwrap();
 
@@ -134,7 +131,7 @@ fn find_path(
     end_y: usize,
     matrix_width: usize,
     matrix_height: usize,
-    matrix: &HashMap<usize, (usize, usize, usize, usize)>,
+    matrix: &HashMap<NodeId, (usize, usize, usize, usize)>,
 ) -> Vec<(usize, usize)> {
     let mut open_set = BinaryHeap::new();
     let mut came_from = HashMap::new();
@@ -200,7 +197,7 @@ fn is_in_grid(x: usize, y: usize, matrix_width: usize, matrix_height: usize) -> 
 fn is_in_obstacle(
     x: usize,
     y: usize,
-    matrix: &HashMap<usize, (usize, usize, usize, usize)>,
+    matrix: &HashMap<NodeId, (usize, usize, usize, usize)>,
 ) -> bool {
     for (_, (x1, y1, x2, y2)) in matrix.iter() {
         if x >= *x1 && x <= *x2 && y >= *y1 && y <= *y2 {
