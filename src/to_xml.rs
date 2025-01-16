@@ -201,9 +201,6 @@ fn write_process_node(bpmn: &mut String, node_id: usize, node: &Node) {
             }
 
             // Activities
-            BpmnEvent::Middle(EventMeta {
-                node_meta: meta, ..
-            })
             | BpmnEvent::ActivityTask(meta) => {
                 bpmn.push_str(&format!(
                     r#"    <bpmn:task id="Node_{node_id}" name="{}">
@@ -304,6 +301,17 @@ fn write_process_node(bpmn: &mut String, node_id: usize, node: &Node) {
             }
 
             // End Events
+            BpmnEvent::Middle(EventMeta {
+                node_meta: meta, ..
+            }) => {
+                bpmn.push_str(&format!(
+                    r#"    <bpmn:intermediateThrowEvent id="Node_{node_id}" name="{}">
+{incomingoutgoing}
+    </bpmn:intermediateThrowEvent>
+"#,
+                    meta.display_text
+                ));
+            }
             BpmnEvent::End(meta) => {
                 bpmn.push_str(&format!(
                     r#"    <bpmn:endEvent id="Node_{node_id}" name="{}">

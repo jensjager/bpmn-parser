@@ -51,6 +51,8 @@ pub fn get_node_size(event: &BpmnEvent) -> (usize, usize) {
         | BpmnEvent::StartMessageEvent(_)
         | BpmnEvent::StartConditionalEvent(_) => (36, 36),
 
+        BpmnEvent::Middle(_) => (36, 36),
+
         // End Events
         BpmnEvent::End(_)
         | BpmnEvent::EndErrorEvent(_)

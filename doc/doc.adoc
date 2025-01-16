@@ -75,6 +75,18 @@ F -> label "Only specify Display Text once for this edge"
 F <- label // No Display Text here.
 ```
 
+== Intermediate Events
+
+.An Intermediate Event.
+image::intermediate-events.png[width=60%]
+
+.An Intermediate Event.
+[source]
+----
+include::intermediate-events.bpmd[]
+----
+<1> Intermediate events use the same `#` symbol as start events.
+
 == IDs
 
 Every statement which represents a node in the diagram (that means excluding `=`, `==`, `G`, `F`) can have an arbitrary amount of IDs somewhere after the Display Text. For example this gateway node will have three IDs:
