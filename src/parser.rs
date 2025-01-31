@@ -1,8 +1,11 @@
 use crate::common::bpmn_event::BpmnEvent;
+use crate::common::graph::DataNodeId;
 use crate::common::graph::Graph;
 use crate::common::graph::NodeId;
 use crate::lexer;
 use crate::lexer::lex;
+use crate::lexer::DataKind;
+use crate::lexer::DataMeta;
 use crate::lexer::EdgeMeta;
 use crate::lexer::EventMeta;
 use crate::lexer::GatewayInnerMeta;
@@ -11,6 +14,7 @@ use crate::lexer::NodeMeta;
 use crate::lexer::SequenceFlowMeta;
 use crate::lexer::{Statement, StatementStream, TokenCoordinate};
 use std::collections::HashMap;
+use std::dbg;
 
 use annotate_snippets::renderer::Renderer;
 use annotate_snippets::Level;
@@ -77,6 +81,7 @@ enum EdgeType {
     Go,
     GatewayBranch,
     GatewayJoin,
+    DataAssociation,
 }
 
 type ParseError = Vec<(String, TokenCoordinate, Level)>;
@@ -147,6 +152,7 @@ impl Parser {
                 Statement::GatewayJoinEnd(meta) => self.parse_gateway_join_end(meta)?,
                 Statement::SequenceFlowStart(meta) => self.parse_sequence_flow_start(meta)?,
                 Statement::SequenceFlowEnd(meta) => self.parse_sequence_flow_end(meta)?,
+                Statement::Data(meta) => self.parse_data(meta)?,
                 Statement::Layout(_) => {
                     eprintln!("Warning: layout instructions are currently ignored.")
                 } //Token::Go => {
@@ -415,6 +421,38 @@ _ => (),
         Ok(())
     }
 
+    fn connect_data_node(
+        &mut self,
+        data_node_id: DataNodeId,
+        new_lifeline_state: LifelineState,
+    ) -> Result<(), ParseError> {
+        match std::mem::replace(&mut self.context.lifeline_state, new_lifeline_state) {
+            LifelineState::StartedFromBranch {
+                edge_type,
+                name,
+                token_coordinate,
+            } => {
+                return Err(vec![(
+                    "This statement requires an active lifeline.".to_string(),
+                    token_coordinate,
+                    Level::Error,
+                )])
+            }
+
+            LifelineState::ActiveLifeline { last_node_id, .. } => {
+                self.graph
+                    .add_data_edge_reversed(DataNodeId(data_node_id.0), last_node_id, None);
+            }
+            a => {
+                return Err(err_from_no_lifeline_active(
+                    a,
+                    self.context.current_token_coordinate,
+                ))
+            }
+        }
+        Ok(())
+    }
+
     /// Common function to parse an event or task
     fn parse_event(&mut self, meta: EventMeta, is_end: bool) -> Result<(), ParseError> {
         match self.context.lifeline_state {
@@ -523,6 +561,50 @@ _ => (),
             name: meta.sequence_flow_jump_meta.target,
             token_coordinate: self.context.current_token_coordinate,
         };
+
+        Ok(())
+    }
+
+    fn parse_data(&mut self, meta: DataMeta) -> Result<(), ParseError> {
+        let datakind = match meta.data_kind {
+            DataKind::DataObject => BpmnEvent::DataObjectReference(meta.clone()),
+            DataKind::DataStore => BpmnEvent::DataStoreReference(meta.clone()),
+        };
+
+        let data_node_id = self.graph.add_data_node(
+            Some(datakind),
+            self.context.current_pool.clone(),
+            self.context.current_lane.clone(),
+        );
+
+        self.connect_data_node(
+            data_node_id,
+            LifelineState::ActiveLifeline {
+                last_node_id: self.graph.nodes.last().unwrap().id,
+                token_coordinate: self.context.current_token_coordinate,
+            },
+        )?;
+
+        for EdgeMeta { target, text_label } in meta.data_association_jump_metas.into_iter() {
+            let edge_type = EdgeType::DataAssociation;
+            self.context
+                .branching
+                .dangling_end_map
+                .try_insert(
+                    target,
+                    vec![DanglingEdgeInfo {
+                        known_node_id: NodeId(data_node_id.0),
+                        edge_type,
+                        edge_text: text_label,
+                        tc: self.context.current_token_coordinate,
+                    }],
+                ).map_err(|e| vec![(
+                        format!("A label used in a sequence flow `->{}` must be unique. It has been used here ....",
+                        e.entry.key()), e.entry.get().first().unwrap().tc, Level::Error
+                    ),
+                    ("... and here".to_string(), self.context.current_token_coordinate, Level::Error),
+                ])?;
+        }
 
         Ok(())
     }

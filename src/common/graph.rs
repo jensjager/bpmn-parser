@@ -1,5 +1,7 @@
 // graph.rs
 use crate::common::bpmn_event::BpmnEvent;
+use crate::common::dataedge::DataEdge;
+use crate::common::datanode::DataNode;
 use crate::common::edge::Edge;
 use crate::common::node::Node;
 use crate::common::pool::Pool;
@@ -15,12 +17,17 @@ pub struct Graph {
     /// Otherwise EdgeIds will point to the wrong edges.
     pub edges: Vec<Edge>,
     pub pools: Vec<Pool>,
+    pub data_nodes: Vec<DataNode>,
+    pub data_edges: Vec<DataEdge>,
 }
 
 /// A Newtype to make sure that code outside of the module does not modify its value.
 /// The invariant is that every created NodeId does point to some existing node.
 #[derive(PartialEq, Default, Clone, Debug, Copy, Hash, Eq)]
 pub struct NodeId(pub usize);
+
+#[derive(PartialEq, Default, Clone, Debug, Copy, Hash, Eq)]
+pub struct DataNodeId(pub usize);
 
 #[derive(PartialEq, Default, Clone, Debug, Copy, Hash, Eq)]
 pub struct EdgeId(pub usize);
@@ -68,12 +75,64 @@ impl Graph {
             from,
             to,
             text,
-            bend_points: None, // Alguses tühi, määratakse assign_bend_points-s
+            bend_points: None, // Empty on creation, will be filled in assign_bend_points
         });
 
         self.nodes[from.0].outgoing.push(edge_id);
         self.nodes[to.0].incoming.push(edge_id);
         edge_id
+    }
+
+    pub fn add_data_node(
+        &mut self,
+        datatype: Option<BpmnEvent>,
+        pool: Option<String>,
+        lane: Option<String>,
+    ) -> DataNodeId {
+        let id = DataNodeId(self.data_nodes.len());
+
+        self.data_nodes.push(DataNode {
+            id,
+            datatype,
+            x: None,
+            x_offset: None,
+            y: None,
+            y_offset: None,
+            pool,
+            lane,
+            layer_id: None,
+        });
+
+        id
+    }
+
+    pub fn add_data_edge(&mut self, from: DataNodeId, to: NodeId, text: Option<String>) -> usize {
+        let index = self.data_edges.len();
+        self.data_edges.push(DataEdge {
+            from,
+            to,
+            text,
+            is_reversed: false,
+            bend_points: None,
+        });
+        index
+    }
+
+    pub fn add_data_edge_reversed(
+        &mut self,
+        from: DataNodeId,
+        to: NodeId,
+        text: Option<String>,
+    ) -> usize {
+        let index = self.data_edges.len();
+        self.data_edges.push(DataEdge {
+            from,
+            to,
+            text,
+            is_reversed: true,
+            bend_points: None,
+        });
+        index
     }
 
     pub fn get_nodes_by_pool_name(&self, pool_name: Option<String>) -> Vec<&Node> {

@@ -12,6 +12,7 @@ use layout::assign_bend_points::assign_bend_points;
 use layout::crossing_minimization::reduce_crossings;
 use layout::node_positioning::assign_xy_to_nodes;
 use layout::solve_layer_assignment::solve_layer_assignment;
+use std::dbg;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -46,9 +47,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 pub fn bpmd_to_bpmn(input: String) -> Result<String, Box<dyn std::error::Error>> {
     let mut graph = parser::parse(input)?;
     solve_layer_assignment(&mut graph);
-    reduce_crossings(&mut graph);
+    // reduce_crossings(&mut graph);
     assign_xy_to_nodes(&mut graph);
     assign_bend_points(&mut graph);
+
+    dbg!(&graph.data_nodes);
+    dbg!(&graph.data_edges);
 
     Ok(to_xml::generate_bpmn(&graph))
 }

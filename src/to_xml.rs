@@ -3,6 +3,7 @@ use crate::common::bpmn_event::BpmnEvent;
 use crate::common::graph::EdgeId;
 use crate::common::graph::Graph;
 use crate::common::node::Node;
+use crate::lexer::DataMeta;
 use crate::lexer::EventMeta;
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -201,7 +202,7 @@ fn write_process_node(bpmn: &mut String, node_id: usize, node: &Node) {
             }
 
             // Activities
-            | BpmnEvent::ActivityTask(meta) => {
+            BpmnEvent::ActivityTask(meta) => {
                 bpmn.push_str(&format!(
                     r#"    <bpmn:task id="Node_{node_id}" name="{}">
 {incomingoutgoing}
@@ -551,5 +552,15 @@ impl Display for AdditionalShapeInfo<'_> {
             Some(BpmnEvent::Gateway(_)) => write!(f, " isMarkerVisible=\"true\""),
             _ => Ok(()),
         }
+    }
+}
+
+impl std::fmt::Display for DataMeta {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "DataMeta {{ data_kind: {:?}, node_meta: {:?} }}",
+            self.data_kind, self.node_meta
+        )
     }
 }

@@ -1,5 +1,6 @@
 extern crate peg;
 
+use std::dbg;
 use std::ops::Range;
 
 use annotate_snippets::renderer::Renderer;
@@ -27,6 +28,7 @@ pub enum Statement {
     GatewayJoinEnd(GatewayNodeMeta),
     SequenceFlowStart(SequenceFlowMeta), // `F ->`
     SequenceFlowEnd(SequenceFlowMeta),   // `F <-`
+    Data(DataMeta),                      // 'SD' for datastore 'OD' for dataobject
     Layout(LayoutStatement),
 }
 
@@ -58,12 +60,25 @@ pub(crate) struct GatewayInnerMeta {
     pub(crate) sequence_flow_jump_meta: EdgeMeta,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct EdgeMeta {
     /// The name of the thing this edge is connected to. This is context dependent.
     pub(crate) target: String,
     /// The text which shall be displayed on the edge.
     pub(crate) text_label: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum DataKind {
+    DataStore,
+    DataObject,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub(crate) struct DataMeta {
+    pub(crate) data_kind: DataKind,
+    pub(crate) node_meta: NodeMeta,
+    pub(crate) data_association_jump_metas: Vec<EdgeMeta>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -280,6 +295,54 @@ fn to_gateway_inner(atts: Tokens) -> AResult {
     })
 }
 
+fn to_data(mut tokens: Tokens) -> AResult {
+    let (_, Token::DataKind(data_kind)) = tokens.next().ok_or_else(|| {
+        (
+            TokenCoordinate::default(),
+            "Programming error: a data statement should always have a DataKind token as the first attribute.".to_string(),
+        )
+    })? else {
+        return Err((
+            TokenCoordinate::default(),
+            "Programming error: a data statement should always have its kind (SD/OD) as the first attribute.".to_string(),
+        ));
+    };
+
+    let atts = assemble_attributes(
+        "Data statements",
+        tokens,
+        AssemblyRequest {
+            display_text: ARAttribute::Optional,
+            ids: ARAttribute::Optional,
+            sequence_flows: ARAttribute::Optional,
+        },
+    )?;
+
+    let mut direction = Direction::Outgoing;
+    let mut data_association_jump_metas = Vec::new();
+    if atts.sequence_flows.is_some() {
+        (direction, data_association_jump_metas) = atts.sequence_flows.unwrap();
+    }
+
+    let node_meta = NodeMeta {
+        display_text: atts.display_text.unwrap_or_default(),
+        ids: atts.ids.unwrap_or_default(),
+    };
+
+    dbg!(
+        &direction,
+        &data_association_jump_metas,
+        &data_kind,
+        &node_meta
+    );
+
+    Ok(Statement::Data(DataMeta {
+        data_kind,
+        node_meta,
+        data_association_jump_metas,
+    }))
+}
+
 fn to_sequence_flow(atts: Tokens) -> AResult {
     let atts = assemble_attributes(
         "Sequence Flows",
@@ -401,6 +464,13 @@ fn assemble_attributes(
                         .to_string(),
                 ))
             }
+            Token::DataKind(_) => {
+                return Err((
+                    it.0,
+                    "Programming error: DataKind should be handled by the calling function."
+                        .to_string(),
+                ))
+            }
         };
     }
 
@@ -467,6 +537,8 @@ pub enum Token {
     // These are in any order
     Id(String),
     SequenceFlow(Direction, EdgeMeta), // `->label"text"`
+
+    DataKind(DataKind),
 }
 
 #[derive(Debug, Clone, Default, Copy, PartialEq)]
@@ -827,7 +899,7 @@ impl<'a> Lexer<'a> {
                         Token::GatewayType(GatewayType::Parallel),
                     );
                 }
-                Some('O') if sas.allow_new_statement => {
+                Some('O') if sas.allow_new_statement && !self.continues_with("D") => {
                     let tc = self.current_coord();
                     self.advance();
                     sas.next_statement(tc, self.position, to_gateway_outer)?;
@@ -845,6 +917,31 @@ impl<'a> Lexer<'a> {
                         tc,
                         self.position,
                         Token::GatewayType(GatewayType::Event),
+                    );
+                }
+                Some('S') if sas.allow_new_statement && self.continues_with("D") => {
+                    let tc = self.current_coord();
+                    self.advance(); // S
+                    self.advance(); // D
+
+                    sas.next_statement(tc, self.position, to_data)?;
+                    sas.add_implicit_fragment(
+                        tc,
+                        self.position,
+                        Token::DataKind(DataKind::DataStore),
+                    );
+                }
+
+                Some('O') if sas.allow_new_statement && self.continues_with("D") => {
+                    let tc = self.current_coord();
+                    self.advance(); // O
+                    self.advance(); // D
+
+                    sas.next_statement(tc, self.position, to_data)?;
+                    sas.add_implicit_fragment(
+                        tc,
+                        self.position,
+                        Token::DataKind(DataKind::DataObject),
                     );
                 }
                 Some('G') if sas.allow_new_statement => {

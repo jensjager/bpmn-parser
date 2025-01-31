@@ -1,3 +1,4 @@
+use crate::lexer::DataMeta;
 use crate::lexer::EventMeta;
 use crate::lexer::GatewayType;
 use crate::lexer::NodeMeta;
@@ -34,8 +35,8 @@ pub enum BpmnEvent {
     BoundaryEscalationEvent(String, usize, bool), // Escalation boundary event
     BoundaryConditionalEvent(String, usize, bool), // Conditional boundary event
     BoundaryCompensationEvent(String, usize), // Compensation boundary event (always non-interrupting)
-    DataStoreReference(String),               // Data store reference with label
-    DataObjectReference(String),              // Data object reference with label
+    DataStoreReference(DataMeta),             // Data store reference with label
+    DataObjectReference(DataMeta),            // Data object reference with label
     TaskUser(NodeMeta),                       // User task with label
     TaskService(NodeMeta),                    // Service task with label
     TaskBusinessRule(NodeMeta),               // Business rule task with label
