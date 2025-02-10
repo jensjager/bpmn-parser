@@ -1,7 +1,6 @@
 extern crate peg;
 
 use std::dbg;
-use std::ops::Range;
 
 use annotate_snippets::renderer::Renderer;
 use annotate_snippets::Level;
@@ -78,7 +77,14 @@ pub enum DataKind {
 pub(crate) struct DataMeta {
     pub(crate) data_kind: DataKind,
     pub(crate) node_meta: NodeMeta,
-    pub(crate) data_association_jump_metas: Vec<EdgeMeta>,
+    pub(crate) data_flow_metas: Vec<DataFlowMeta>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub(crate) struct DataFlowMeta {
+    pub(crate) direction: Direction,
+    pub(crate) target: String,
+    pub(crate) text_label: String,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -151,6 +157,7 @@ struct AssembledAttributes {
     display_text: Option<String>,
     ids: Option<Vec<String>>,
     sequence_flows: Option<(Direction, Vec<EdgeMeta>)>,
+    data_flows: Option<Vec<(Direction, EdgeMeta)>>,
 }
 
 //struct EdgeAttribute {
@@ -314,32 +321,32 @@ fn to_data(mut tokens: Tokens) -> AResult {
         AssemblyRequest {
             display_text: ARAttribute::Optional,
             ids: ARAttribute::Optional,
-            sequence_flows: ARAttribute::Optional,
+            sequence_flows: ARAttribute::Required,
         },
     )?;
-
-    let mut direction = Direction::Outgoing;
-    let mut data_association_jump_metas = Vec::new();
-    if atts.sequence_flows.is_some() {
-        (direction, data_association_jump_metas) = atts.sequence_flows.unwrap();
-    }
 
     let node_meta = NodeMeta {
         display_text: atts.display_text.unwrap_or_default(),
         ids: atts.ids.unwrap_or_default(),
     };
 
-    dbg!(
-        &direction,
-        &data_association_jump_metas,
-        &data_kind,
-        &node_meta
-    );
+    let data_flow_metas = atts
+        .data_flows
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(direction, edge_meta)| DataFlowMeta {
+            direction,
+            target: edge_meta.target,
+            text_label: edge_meta.text_label,
+        })
+        .collect::<Vec<_>>();
+
+    dbg!(&data_kind, &node_meta, &data_flow_metas);
 
     Ok(Statement::Data(DataMeta {
         data_kind,
         node_meta,
-        data_association_jump_metas,
+        data_flow_metas,
     }))
 }
 
@@ -447,14 +454,25 @@ fn assemble_attributes(
                 if matches!(request.sequence_flows, ARAttribute::Forbidden) {
                     return Err((it.0, format!("{what_plural} cannot have sequence flows.")));
                 }
-                match &mut out.sequence_flows {
-                    Some((direction, edge_metas)) => {
-                        if *direction != val_direction {
-                            return Err((it.0, format!("{what_plural} can only have one direction of sequence flows (either '->label' or '<-label').")));
+                if what_plural == "Data statements" {
+                    out.data_flows
+                        .get_or_insert_default()
+                        .push((val_direction, val_edge));
+                } else {
+                    match &mut out.sequence_flows {
+                        Some((direction, edge_metas)) => {
+                            if *direction != val_direction {
+                                return Err((
+                                                it.0,
+                                                format!("{what_plural} can only have one direction of sequence flows (either '->label' or '<-label').")
+                                            ));
+                            }
+                            edge_metas.push(val_edge);
                         }
-                        edge_metas.push(val_edge);
+                        None => {
+                            out.sequence_flows = Some((val_direction, vec![val_edge]));
+                        }
                     }
-                    None => out.sequence_flows = Some((val_direction, vec![val_edge])),
                 }
             }
             Token::GatewayType(_) => {
@@ -477,6 +495,8 @@ fn assemble_attributes(
     //let check_required = |req, opt: &mut Option<_>| matches!(req, ARAttribute::Required if opt.is_none());
     //let check_required_exact = |req, opt_vec: &mut Option<Vec<_>>| matches!(req, ARAttribute::RequiredExact(len) if opt_vec.get_or_insert_default().len() != len);
 
+    // TODO ensure data flow errors are triggered even when no attributes are provided with a data statement
+    // Example: "OD" should prompt the user to add data flows.
     let Some(tc) = tc else {
         return Err((TokenCoordinate::default(), "This statement seems to be missing attributes? Consider adding a display text, IDs (@id), sequence flows (<-label\"Text\") etc".to_string()));
     };
@@ -509,8 +529,18 @@ fn assemble_attributes(
         }
     }
 
-    if matches!(request.sequence_flows, ARAttribute::Required) && out.sequence_flows.is_none() {
+    if matches!(request.sequence_flows, ARAttribute::Required)
+        && out.sequence_flows.is_none()
+        && what_plural != "Data statements"
+    {
         return Err((tc, format!("{what_plural} must have at least one sequence flow (e.g. <-label or ->label), but it is missing.")));
+    }
+
+    if matches!(request.sequence_flows, ARAttribute::Required)
+        && out.data_flows.is_none()
+        && what_plural == "Data statements"
+    {
+        return Err((tc, format!("{what_plural} must have at least one data flow (e.g. <-label or ->label), but it is missing.")));
     }
 
     if let ARAttribute::RequiredExact(len) = request.sequence_flows {

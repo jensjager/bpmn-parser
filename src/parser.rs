@@ -1,11 +1,12 @@
 use crate::common::bpmn_event::BpmnEvent;
-use crate::common::graph::DataNodeId;
 use crate::common::graph::Graph;
 use crate::common::graph::NodeId;
 use crate::lexer;
 use crate::lexer::lex;
+use crate::lexer::DataFlowMeta;
 use crate::lexer::DataKind;
 use crate::lexer::DataMeta;
+use crate::lexer::Direction;
 use crate::lexer::EdgeMeta;
 use crate::lexer::EventMeta;
 use crate::lexer::GatewayInnerMeta;
@@ -27,6 +28,7 @@ struct ParseContext {
     lifeline_state: LifelineState,
     current_token_coordinate: TokenCoordinate,
     branching: ParseBranching,
+    node_ids: HashMap<String, NodeId>,
 }
 
 // X ->l1 ; l1: - task; J end; X<-end
@@ -81,7 +83,6 @@ enum EdgeType {
     Go,
     GatewayBranch,
     GatewayJoin,
-    DataAssociation,
 }
 
 type ParseError = Vec<(String, TokenCoordinate, Level)>;
@@ -105,6 +106,7 @@ impl Parser {
                 },
                 current_token_coordinate: TokenCoordinate::default(),
                 branching: ParseBranching::default(),
+                node_ids: HashMap::new(),
             },
         }
     }
@@ -421,38 +423,6 @@ _ => (),
         Ok(())
     }
 
-    fn connect_data_node(
-        &mut self,
-        data_node_id: DataNodeId,
-        new_lifeline_state: LifelineState,
-    ) -> Result<(), ParseError> {
-        match std::mem::replace(&mut self.context.lifeline_state, new_lifeline_state) {
-            LifelineState::StartedFromBranch {
-                edge_type,
-                name,
-                token_coordinate,
-            } => {
-                return Err(vec![(
-                    "This statement requires an active lifeline.".to_string(),
-                    token_coordinate,
-                    Level::Error,
-                )])
-            }
-
-            LifelineState::ActiveLifeline { last_node_id, .. } => {
-                self.graph
-                    .add_data_edge_reversed(DataNodeId(data_node_id.0), last_node_id, None);
-            }
-            a => {
-                return Err(err_from_no_lifeline_active(
-                    a,
-                    self.context.current_token_coordinate,
-                ))
-            }
-        }
-        Ok(())
-    }
-
     /// Common function to parse an event or task
     fn parse_event(&mut self, meta: EventMeta, is_end: bool) -> Result<(), ParseError> {
         match self.context.lifeline_state {
@@ -502,10 +472,15 @@ _ => (),
 
     fn parse_task(&mut self, meta: NodeMeta) -> Result<(), ParseError> {
         let node_id = self.graph.add_node(
-            BpmnEvent::ActivityTask(meta),
+            BpmnEvent::ActivityTask(meta.clone()),
             self.context.current_pool.clone(),
             self.context.current_lane.clone(),
         );
+
+        for id in &meta.ids {
+            self.context.node_ids.insert(id.clone(), node_id);
+        }
+
         self.connect_nodes(
             node_id,
             LifelineState::ActiveLifeline {
@@ -577,33 +552,46 @@ _ => (),
             self.context.current_lane.clone(),
         );
 
-        self.connect_data_node(
-            data_node_id,
-            LifelineState::ActiveLifeline {
-                last_node_id: self.graph.nodes.last().unwrap().id,
-                token_coordinate: self.context.current_token_coordinate,
-            },
-        )?;
+        dbg!(&meta.data_flow_metas);
 
-        for EdgeMeta { target, text_label } in meta.data_association_jump_metas.into_iter() {
-            let edge_type = EdgeType::DataAssociation;
-            self.context
-                .branching
-                .dangling_end_map
-                .try_insert(
-                    target,
-                    vec![DanglingEdgeInfo {
-                        known_node_id: NodeId(data_node_id.0),
-                        edge_type,
-                        edge_text: text_label,
-                        tc: self.context.current_token_coordinate,
-                    }],
-                ).map_err(|e| vec![(
-                        format!("A label used in a sequence flow `->{}` must be unique. It has been used here ....",
-                        e.entry.key()), e.entry.get().first().unwrap().tc, Level::Error
+        for DataFlowMeta {
+            direction,
+            target,
+            text_label,
+        } in meta.data_flow_metas
+        {
+            if let Some(&node_id) = self.context.node_ids.get(&target) {
+                if self.graph.nodes[node_id.0].lane != self.context.current_lane {
+                    return Err(vec![(
+                        format!(
+                            "Data node {:?} must be defined in the same lane as node {}.",
+                            text_label, target
+                        ),
+                        self.context.current_token_coordinate,
+                        Level::Error,
+                    )]);
+                }
+                match direction {
+                    Direction::Outgoing => {
+                        self.graph
+                            .add_data_edge(data_node_id, node_id, Some(text_label));
+                    }
+                    Direction::Incoming => {
+                        self.graph
+                            .add_data_edge_reversed(data_node_id, node_id, Some(text_label));
+                    }
+                }
+            } else {
+                //Level::Note error show node line nr
+                return Err(vec![(
+                    format!(
+                        "Data node {:?} must be defined after node {}. ID unknown.",
+                        text_label, target
                     ),
-                    ("... and here".to_string(), self.context.current_token_coordinate, Level::Error),
-                ])?;
+                    self.context.current_token_coordinate,
+                    Level::Error,
+                )]);
+            }
         }
 
         Ok(())
