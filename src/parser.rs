@@ -552,8 +552,6 @@ _ => (),
             self.context.current_lane.clone(),
         );
 
-        dbg!(&meta.data_flow_metas);
-
         for DataFlowMeta {
             direction,
             target,

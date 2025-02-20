@@ -16,8 +16,10 @@ fn solve_layers(nodes: &mut [Node], edges: &[Edge], lane: &mut Lane) {
     let mut vars = variables!();
     let mut layer_vars = Vec::new();
 
+    let max_layer = lane.nodes.len() as f64;
+
     for node_id in &lane.nodes {
-        let layer_var = vars.add(variable().integer().min(0));
+        let layer_var = vars.add(variable().integer().min(0).max(max_layer));
         layer_vars.push((node_id, layer_var));
     }
 
@@ -37,9 +39,7 @@ fn solve_layers(nodes: &mut [Node], edges: &[Edge], lane: &mut Lane) {
         }
     }
 
-    let mut problem = vars.minimise(objective).using(coin_cbc);
-    problem.set_parameter("logLevel", "0");
-
+    let mut problem = vars.minimise(objective).using(default_solver);
     for edge in edges {
         let from_var = layer_vars
             .iter()

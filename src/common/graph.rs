@@ -38,6 +38,12 @@ impl fmt::Display for NodeId {
     }
 }
 
+impl fmt::Display for DataNodeId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl Graph {
     /// Returns the node_id parameter for convenience on the caller side.
     pub fn add_node(
@@ -101,6 +107,7 @@ impl Graph {
             pool,
             lane,
             layer_id: None,
+            uses_half_layer: false,
         });
 
         id

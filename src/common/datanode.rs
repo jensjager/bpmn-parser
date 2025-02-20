@@ -13,6 +13,7 @@ pub struct DataNode {
     pub pool: Option<String>,
     pub lane: Option<String>,
     pub layer_id: Option<usize>,
+    pub uses_half_layer: bool,
 }
 
 impl DataNode {
@@ -22,8 +23,14 @@ impl DataNode {
         self.x_offset = Some(x_offset);
         self.y_offset = Some(y_offset);
     }
+}
 
-    pub fn set_layer_id(&mut self, layer_id: usize) {
-        self.layer_id = Some(layer_id);
+impl std::fmt::Display for DataNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "Node {{ id: {}, x: {:?}, y: {:?}, event: {:?}, pool: {:?}, lane: {:?} }}",
+            self.id, self.x, self.y, self.datatype, self.pool, self.lane
+        )
     }
 }

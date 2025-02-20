@@ -20,7 +20,6 @@ pub fn assign_xy_to_nodes(graph: &mut Graph) {
             let mut pool_height = 0.0;
             let mut lane_width = 0.0;
             for lane in &mut pool.lanes {
-                lane.sort_nodes_by_layer_id(&graph.nodes);
                 let max_height = find_max_nodes_in_layer(&lane.lane, &graph.nodes) * 100 + 80;
                 pool_height += max_height as f64;
                 lane.height = Some(max_height as f64);

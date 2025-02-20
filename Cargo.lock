@@ -136,7 +136,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d602045cd2e7ad02608a71492af94357f493a6f3c934ce854c03bf10fddc5780"
 dependencies = [
  "coin_cbc_sys",
- "lazy_static",
 ]
 
 [[package]]
@@ -162,9 +161,9 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "good_lp"
-version = "1.8.1"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3198bd13dea84c76a64621d6ee8ee26a4960a9a0d538eca95ca8f1320a469ac9"
+checksum = "10efcd6c7d6f84cb5b4f9155248e0675deab9cfb92d0edbcb25cb81490b65ae7"
 dependencies = [
  "coin_cbc",
  "fnv",
@@ -181,12 +180,6 @@ name = "is_terminal_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7943c866cc5cd64cbc25b2e01621d07fa8eb2a1a23160ee81ce38704e97b8ecf"
-
-[[package]]
-name = "lazy_static"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "peg"
