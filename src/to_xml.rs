@@ -37,35 +37,37 @@ impl<'a> Display for DataIncomingOutgoing<'a> {
         }
 
         if !output_refs.is_empty() {
-            writeln!(
-                f,
-                "      <bpmn:dataOutputAssociation id=\"DataOutputAssociation_{}_{}\">",
-                output_refs[0].from, output_refs[0].to
-            )?;
-            for data_node in output_refs {
+            for id in 0..output_refs.len() {
+                let data_node = output_refs[id];
+                writeln!(
+                    f,
+                    "      <bpmn:dataOutputAssociation id=\"DataOutputAssociation_{}_{}\">",
+                    data_node.from, data_node.to
+                )?;
                 writeln!(
                     f,
                     "        <bpmn:targetRef>Data_Node_{}</bpmn:targetRef>",
                     data_node.from
                 )?;
+                writeln!(f, "      </bpmn:dataOutputAssociation>")?;
             }
-            writeln!(f, "      </bpmn:dataOutputAssociation>")?;
         }
 
         if !input_refs.is_empty() {
-            writeln!(
-                f,
-                "      <bpmn:dataInputAssociation id=\"DataInputAssociation_{}_{}\">",
-                input_refs[0].from, input_refs[0].to
-            )?;
-            for data_node in input_refs {
+            for id in 0..input_refs.len() {
+                let data_node = input_refs[id];
+                writeln!(
+                    f,
+                    "      <bpmn:dataInputAssociation id=\"DataInputAssociation_{}_{}\">",
+                    data_node.from, data_node.to
+                )?;
                 writeln!(
                     f,
                     "        <bpmn:sourceRef>Data_Node_{}</bpmn:sourceRef>\n        <bpmn:targetRef>Node_{}</bpmn:targetRef>",
                     data_node.from, data_node.to
                 )?;
+                writeln!(f, "      </bpmn:dataInputAssociation>")?;
             }
-            writeln!(f, "      </bpmn:dataInputAssociation>")?;
         }
 
         Ok(())
