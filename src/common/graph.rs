@@ -100,14 +100,9 @@ impl Graph {
         self.data_nodes.push(DataNode {
             id,
             datatype,
-            x: None,
-            x_offset: None,
-            y: None,
-            y_offset: None,
             pool,
             lane,
-            layer_id: None,
-            uses_half_layer: false,
+            ..Default::default()
         });
 
         id
@@ -144,5 +139,10 @@ impl Graph {
 
     pub fn get_nodes_by_pool_name(&self, pool_name: Option<String>) -> Vec<&Node> {
         self.nodes.iter().filter(|n| n.pool == pool_name).collect()
+    }
+
+    pub fn sort_data_nodes_by_lane_and_layer(&mut self) {
+        self.data_nodes
+            .sort_by_key(|node| (node.lane.clone(), node.layer_id));
     }
 }

@@ -14,12 +14,18 @@ pub struct DataNode {
     pub lane: Option<String>,
     pub layer_id: Option<usize>,
     pub uses_half_layer: bool,
+    pub above: bool,
 }
 
 impl DataNode {
     pub fn set_position(&mut self, x: f64, y: f64, x_offset: f64, y_offset: f64) {
         self.x = Some(x);
-        self.y = Some(y);
+        if self.above {
+            self.y = Some(y - 80.0);
+        } else {
+            self.y = Some(y + 150.0);
+        }
+
         self.x_offset = Some(x_offset);
         self.y_offset = Some(y_offset);
     }

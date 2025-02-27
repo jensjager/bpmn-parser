@@ -1,7 +1,5 @@
 extern crate peg;
 
-use std::dbg;
-
 use annotate_snippets::renderer::Renderer;
 use annotate_snippets::Level;
 use annotate_snippets::Snippet;
@@ -340,8 +338,6 @@ fn to_data(mut tokens: Tokens) -> AResult {
             text_label: edge_meta.text_label,
         })
         .collect::<Vec<_>>();
-
-    dbg!(&data_kind, &node_meta, &data_flow_metas);
 
     Ok(Statement::Data(DataMeta {
         data_kind,
