@@ -1,8 +1,11 @@
-use std::collections::HashMap;
-
 use crate::common::dataedge::DataEdge;
+use crate::common::datanode::DataNode;
 use crate::common::graph::{DataNodeId, Graph, NodeId};
+use crate::common::node::Node;
+use crate::common::pool::Pool;
+use crate::layout::data_crossing_minimization::reduce_data_crossings;
 use good_lp::*;
+use std::collections::HashMap;
 
 const AVG_POS_COST: f64 = 0.2;
 const HALF_LAYER_COST: f64 = 0.005;
@@ -16,7 +19,7 @@ pub fn solve_data_layer_assignment(graph: &mut Graph) {
 
     // HashMap<(layer_id, uses_half_layer), (number of data_nodes on layer, Vec<DataNodeId>)>
     let mut node_distribution: HashMap<(usize, bool), (usize, Vec<DataNodeId>)> = HashMap::new();
-    for data_node in graph.data_nodes.iter() {
+    for data_node in graph.data_nodes.iter_mut() {
         if data_node.uses_half_layer {
             node_distribution
                 .entry((data_node.layer_id.unwrap(), true))
@@ -26,15 +29,62 @@ pub fn solve_data_layer_assignment(graph: &mut Graph) {
                 })
                 .or_insert((1, vec![data_node.id]));
         }
+
+        set_reference_node(&graph.pools, &graph.nodes, data_node);
     }
 
-    for (_key, value) in node_distribution.iter() {
-        if value.0 > MAX_NODES_PER_LAYER as usize {
-            // TODO distribute nodes
+    // reduce_data_crossings(graph);
+    // find_vertical_layers(graph, node_distribution);
+}
+
+fn find_vertical_layers(
+    graph: &mut Graph,
+    node_distribution: HashMap<(usize, bool), (usize, Vec<DataNodeId>)>,
+) {
+    for (num_dn_in_layer, data_node_ids) in node_distribution.into_values() {
+        for dn_id in data_node_ids {
+            let users = find_users_of_data_node(&graph.data_edges, dn_id);
+            let data_node = &mut graph
+                .data_nodes
+                .iter()
+                .find(|data_node| data_node.id == dn_id)
+                .unwrap();
+
+            if data_node.reference_node.is_none() {
+                continue;
+            }
+            if users
+                .iter()
+                .any(|user| graph.nodes[user.0].layer_id == data_node.layer_id)
+            {
+                // Get as close as possible to the user's layer
+            } else {
+                // Find average layer height
+                // Go below
+            }
+            // Default stay above
         }
     }
+}
 
-    // solve_ilp(graph);
+fn set_reference_node(
+    pools: &Vec<Pool>,
+    nodes: &Vec<Node>,
+    data_node: &mut crate::common::datanode::DataNode,
+) {
+    for pool in pools.iter() {
+        if data_node.pool == pool.pool_name {
+            for lane in pool.lanes.iter() {
+                if data_node.lane == lane.lane {
+                    for nodeid in lane.nodes.iter() {
+                        if data_node.layer_id == nodes[nodeid.0].layer_id {
+                            data_node.reference_node = Some(nodeid.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn solve_heuristic(graph: &mut Graph) {
@@ -43,10 +93,14 @@ fn solve_heuristic(graph: &mut Graph) {
         let mut sum: f64 = 0.0;
         let mut count: usize = 0;
         for user_node_id in user_nodes.iter() {
-            count += 1;
-            sum += graph.nodes[user_node_id.0].layer_id.unwrap() as f64;
+            let user_node = &graph.nodes[user_node_id.0];
+            if user_node.lane == data_node.lane {
+                count += 1;
+                sum += user_node.layer_id.unwrap() as f64;
+            }
         }
         let avg = sum / count as f64;
+
         if avg == avg.floor() {
             data_node.layer_id = Some(avg as usize);
         } else {

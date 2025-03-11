@@ -559,7 +559,7 @@ _ => (),
         } in meta.data_flow_metas
         {
             if let Some(&node_id) = self.context.node_ids.get(&target) {
-                if self.graph.nodes[node_id.0].lane != self.context.current_lane {
+                if self.graph.nodes[node_id.0].pool != self.context.current_pool {
                     return Err(vec![(
                         format!(
                             "Data node {:?} must be defined in the same lane as node {}.",

@@ -1,3 +1,4 @@
+use crate::common;
 use crate::common::graph::NodeId;
 use crate::common::{bpmn_event::get_node_size, graph::Graph, lane::Lane, node::Node};
 use std::collections::HashMap;
@@ -27,7 +28,6 @@ pub fn assign_xy_to_nodes(graph: &mut Graph) {
                 if new_lane_width > lane_width {
                     lane_width = new_lane_width;
                 }
-
                 for layer_index in 0..lane.nodes.len() {
                     let x = node_x_start + (layer_index as f64 * layer_width);
                     let mut y_layer_position = node_position_y;
@@ -71,83 +71,83 @@ pub fn assign_xy_to_nodes(graph: &mut Graph) {
             pool.set_lane_width(lane_width);
         }
 
-        let mut lane_change_new_x: HashMap<NodeId, f64> = HashMap::new();
-        {
-            let edges = &graph.edges;
-            for edge in edges {
-                let to_node = &graph.nodes[edge.to.0];
-                let from_node = &graph.nodes[edge.from.0];
-                if from_node.lane != to_node.lane {
-                    if let Some(fx) = from_node.x {
-                        lane_change_new_x.insert(to_node.id, fx);
-                    }
-                }
-            }
-        }
+        //     let mut lane_change_new_x: HashMap<NodeId, f64> = HashMap::new();
+        //     {
+        //         let edges = &graph.edges;
+        //         for edge in edges {
+        //             let to_node = &graph.nodes[edge.to.0];
+        //             let from_node = &graph.nodes[edge.from.0];
+        //             if from_node.lane != to_node.lane {
+        //                 if let Some(fx) = from_node.x {
+        //                     lane_change_new_x.insert(to_node.id, fx);
+        //                 }
+        //             }
+        //         }
+        //     }
 
-        let mut lane_shifts: HashMap<(Option<String>, Option<String>), Vec<(usize, NodeId, f64)>> =
-            HashMap::new();
+        //     let mut lane_shifts: HashMap<(Option<String>, Option<String>), Vec<(usize, NodeId, f64)>> =
+        //         HashMap::new();
 
-        {
-            for pool in &graph.pools {
-                for lane in &pool.lanes {
-                    let layer_nodes = &lane.nodes;
-                    for (index, node_id) in layer_nodes.iter().enumerate() {
-                        if let Some(&new_x) = lane_change_new_x.get(&node_id) {
-                            if let Some(&old_x) = original_positions.get(&node_id) {
-                                let dx = new_x - old_x;
-                                if dx.abs() > f64::EPSILON {
-                                    lane_shifts
-                                        .entry((pool.pool_name.clone(), lane.lane.clone()))
-                                        .or_default()
-                                        .push((index, *node_id, dx));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        //     {
+        //         for pool in &graph.pools {
+        //             for lane in &pool.lanes {
+        //                 let layer_nodes = &lane.nodes;
+        //                 for (index, node_id) in layer_nodes.iter().enumerate() {
+        //                     if let Some(&new_x) = lane_change_new_x.get(&node_id) {
+        //                         if let Some(&old_x) = original_positions.get(&node_id) {
+        //                             let dx = new_x - old_x;
+        //                             if dx.abs() > f64::EPSILON {
+        //                                 lane_shifts
+        //                                     .entry((pool.pool_name.clone(), lane.lane.clone()))
+        //                                     .or_default()
+        //                                     .push((index, *node_id, dx));
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
 
-        for changes_key in lane_shifts.keys() {
-            let mut changes = lane_shifts.get(changes_key).unwrap().clone();
-            changes.sort_by_key(|c| c.0);
-        }
+        //     for changes_key in lane_shifts.keys() {
+        //         let mut changes = lane_shifts.get(changes_key).unwrap().clone();
+        //         changes.sort_by_key(|c| c.0);
+        //     }
 
-        {
-            for pool in &mut graph.pools {
-                for lane in &mut pool.lanes {
-                    let key = (pool.pool_name.clone(), lane.lane.clone());
-                    if let Some(mut changes) = lane_shifts.get(&key).cloned() {
-                        changes.sort_by_key(|c| c.0);
+        //     {
+        //         for pool in &mut graph.pools {
+        //             for lane in &mut pool.lanes {
+        //                 let key = (pool.pool_name.clone(), lane.lane.clone());
+        //                 if let Some(mut changes) = lane_shifts.get(&key).cloned() {
+        //                     changes.sort_by_key(|c| c.0);
 
-                        let len = lane.nodes.len();
-                        let mut dx_map: Vec<f64> = vec![0.0; len];
+        //                     let len = lane.nodes.len();
+        //                     let mut dx_map: Vec<f64> = vec![0.0; len];
 
-                        for (node_index, _node_id, dx) in changes {
-                            for i in node_index..len {
-                                dx_map[i] += dx;
-                            }
-                        }
+        //                     for (node_index, _node_id, dx) in changes {
+        //                         for i in node_index..len {
+        //                             dx_map[i] += dx;
+        //                         }
+        //                     }
 
-                        for i in 1..len {
-                            dx_map[i] += dx_map[i - 1];
-                        }
+        //                     for i in 1..len {
+        //                         dx_map[i] += dx_map[i - 1];
+        //                     }
 
-                        for (node_id, dx) in lane.nodes.iter().zip(dx_map) {
-                            if dx.abs() > f64::EPSILON {
-                                let node = &mut graph.nodes[node_id.0];
-                                let old_x = node.x.unwrap_or(0.0);
-                                let old_y = node.y.unwrap_or(0.0);
-                                let old_y_off = node.y_offset.unwrap_or(0.0);
-                                let old_x_off = node.x_offset.unwrap_or(0.0);
-                                node.set_position(old_x + dx, old_y, old_x_off, old_y_off);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        //                     for (node_id, dx) in lane.nodes.iter().zip(dx_map) {
+        //                         if dx.abs() > f64::EPSILON {
+        //                             let node = &mut graph.nodes[node_id.0];
+        //                             let old_x = node.x.unwrap_or(0.0);
+        //                             let old_y = node.y.unwrap_or(0.0);
+        //                             let old_y_off = node.y_offset.unwrap_or(0.0);
+        //                             let old_x_off = node.x_offset.unwrap_or(0.0);
+        //                             node.set_position(old_x + dx, old_y, old_x_off, old_y_off);
+        //                         }
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
     }
 }
 
@@ -177,7 +177,6 @@ fn find_max_nodes_in_layer(lane: &Option<String>, nodes: &[Node]) -> usize {
 fn get_lane_width(lane: &Lane, nodes: &[Node]) -> f64 {
     let last_node = &nodes[lane.nodes.last().unwrap().0];
     let last_layer = last_node.layer_id.unwrap_or(0);
-    println!("last_layer: {}", last_layer);
     if last_layer == 0 || last_layer == 1 {
         return 350.0;
     } else {

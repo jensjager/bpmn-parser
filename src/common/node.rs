@@ -16,6 +16,7 @@ pub struct Node {
     pub pool: Option<String>,
     pub lane: Option<String>,
     pub layer_id: Option<usize>,
+    pub pos_in_layer: Option<usize>,
 
     // TODO is this actually really used? Was set in solve_layer_assignment but
     // not read anywhere.

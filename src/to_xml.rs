@@ -230,19 +230,15 @@ pub fn generate_bpmn(graph: &Graph) -> String {
         ));
     });
 
-    graph
-        .data_nodes
-        .iter()
-        .enumerate()
-        .for_each(|(data_node_id, datanode)| {
-            let (width, height) = if let Some(datakind) = &datanode.datatype {
-                get_node_size(datakind)
-            } else {
-                panic!("Error: Data node type is missing")
-            };
-
-            bpmn.push_str(&format!(
-                r#"      <bpmndi:BPMNShape id="Data_Node_{data_node_id}_di" bpmnElement="Data_Node_{data_node_id}">
+    graph.data_nodes.iter().for_each(|datanode| {
+        let (width, height) = if let Some(datakind) = &datanode.datatype {
+            get_node_size(datakind)
+        } else {
+            panic!("Error: Data node type is missing")
+        };
+        let dn_id = datanode.id.0;
+        bpmn.push_str(&format!(
+            r#"      <bpmndi:BPMNShape id="Data_Node_{dn_id}_di" bpmnElement="Data_Node_{dn_id}">
         <dc:Bounds x="{:.2}" y="{:.2}" width="{}" height="{}" />
       </bpmndi:BPMNShape>
 "#,
@@ -251,7 +247,7 @@ pub fn generate_bpmn(graph: &Graph) -> String {
             width,
             height,
         ));
-        });
+    });
 
     // Add BPMNEdge elements
     for (edge_id, edge) in graph.edges.iter().enumerate() {

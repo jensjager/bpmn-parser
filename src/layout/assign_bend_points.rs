@@ -120,7 +120,7 @@ pub fn assign_bend_points(graph: &mut Graph) {
                     .collect(),
             );
         }
-        println!("Edge from {} to {} routed", edge.from, edge.to);
+        // println!("Edge from {} to {} routed", edge.from, edge.to);
     }
 }
 

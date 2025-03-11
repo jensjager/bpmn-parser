@@ -6,13 +6,13 @@ use crate::common::pool::Pool;
 const DN_SPACE: f64 = 60.0;
 
 pub fn assign_xy_to_data_nodes(graph: &mut Graph) {
-    graph.sort_data_nodes_by_lane_and_layer();
     let x_offset = 20.0;
     let y_offset = 0.0;
     for i in 0..graph.data_nodes.len() {
         let (prev_nodes, rest) = graph.data_nodes.split_at_mut(i);
         let data_node = &mut rest[0];
         let (x_pos, y_pos) = get_x_y(&graph.nodes, data_node);
+        // First datanode
         if i == 0 {
             push_graph(
                 &mut graph.pools,
@@ -29,6 +29,7 @@ pub fn assign_xy_to_data_nodes(graph: &mut Graph) {
             let prev_x = prev_node.x.clone();
             let prev_y = prev_node.y.clone();
 
+            // Is in different lane
             if data_node.lane != prev_node_lane {
                 push_graph(
                     &mut graph.pools,
@@ -38,6 +39,7 @@ pub fn assign_xy_to_data_nodes(graph: &mut Graph) {
                 );
                 data_node.set_position(x_pos, y_pos, x_offset, y_offset);
             } else {
+                // Is in the same layer
                 if data_node.layer_id == prev_node_layer_id
                     && data_node.uses_half_layer == prev_node_uses_half_layer
                 {
@@ -49,7 +51,8 @@ pub fn assign_xy_to_data_nodes(graph: &mut Graph) {
                         data_node,
                         data_node.above,
                     );
-                    data_node.set_position(new_x, new_y, x_offset, y_offset);
+                    data_node.set_position(x_pos, new_y, x_offset, y_offset);
+                // Is in a different layer
                 } else {
                     data_node.set_position(x_pos, y_pos, x_offset, y_offset);
                 }
@@ -104,7 +107,7 @@ fn get_x_y(nodes: &Vec<Node>, data_node: &mut DataNode) -> (f64, f64) {
 
     let y_pos = get_y_pos(
         data_node.layer_id.unwrap(),
-        data_node.lane.as_ref(),
+        &data_node.lane,
         nodes,
         data_node.above,
     );
@@ -116,24 +119,42 @@ fn get_x_pos(layer: usize) -> f64 {
     layer as f64 * 150.0 + 180.0
 }
 
-fn get_y_pos(layer: usize, lane: Option<&String>, nodes: &[Node], above: bool) -> f64 {
+fn get_y_pos(layer: usize, lane: &Option<String>, nodes: &[Node], above: bool) -> f64 {
     if above {
         nodes
             .iter()
             .filter_map(|node| {
-                if node.lane.as_ref() == lane && node.layer_id.unwrap() == layer {
+                if node.lane == *lane && node.layer_id.unwrap() == layer {
                     node.y
                 } else {
                     None
                 }
             })
             .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap()
+            .unwrap_or_else(|| {
+                nodes
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, node)| {
+                        if node.lane == *lane {
+                            if index != 0
+                                && nodes
+                                    .get(index + 1)
+                                    .map_or(true, |next_node| next_node.lane != *lane)
+                            {
+                                return node.y;
+                            }
+                        }
+                        None
+                    })
+                    .next()
+                    .unwrap_or(0.0)
+            })
     } else {
         nodes
             .iter()
             .filter_map(|node| {
-                if node.lane.as_ref() == lane && node.layer_id.unwrap() == layer {
+                if node.lane == *lane && node.layer_id.unwrap() == layer {
                     node.y
                 } else {
                     None

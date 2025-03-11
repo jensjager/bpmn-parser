@@ -62,4 +62,15 @@ fn solve_layers(nodes: &mut [Node], edges: &[Edge], lane: &mut Lane) {
     }
 
     lane.sort_nodes_by_layer_id(nodes);
+    if let Some(first_node_id) = lane.nodes.first() {
+        if let Some(first_layer_id) = nodes[first_node_id.0].layer_id {
+            if first_layer_id != 0 {
+                for node in nodes.iter_mut() {
+                    if let Some(layer_id) = node.layer_id {
+                        node.layer_id = Some(layer_id - first_layer_id);
+                    }
+                }
+            }
+        }
+    }
 }

@@ -59,21 +59,21 @@ pub fn reduce_crossings(graph: &mut Graph) {
 fn find_average(node_id: NodeId, graph: &Graph) -> Option<f64> {
     let mut sum: usize = 0;
     let mut count: usize = 0;
-    let to_node_lane: String = graph.nodes[node_id.0].lane.clone().unwrap();
+    let to_node_lane: &Option<String> = &graph.nodes[node_id.0].lane;
 
     for edge in graph.edges.iter() {
         if edge.to == node_id {
             let from_node = &graph.nodes[edge.from.0];
             count += 1;
             let (pos, passed_to_node_lane) =
-                get_node_position_in_layer(graph, from_node, &to_node_lane);
+                get_node_position_in_layer(graph, from_node, to_node_lane);
             if pos == None {
                 // TODO throw error
             }
-            if from_node.lane.as_ref() == Some(&to_node_lane) {
+            if from_node.lane == *to_node_lane {
                 sum += pos.unwrap_or(0);
             } else if passed_to_node_lane {
-                // The node is connected to a node from another layer
+                // The node is connected to a node from another lane
                 return Some(f64::MAX); // Move node to the bottom of the layer
             } else {
                 return Some(f64::MIN); // Move node to the top of the layer
@@ -88,19 +88,19 @@ fn find_average(node_id: NodeId, graph: &Graph) -> Option<f64> {
     }
 }
 
-fn get_node_position_in_layer(
+pub fn get_node_position_in_layer(
     graph: &Graph,
     node: &Node,
-    to_node_lane: &String,
+    to_node_lane: &Option<String>,
 ) -> (Option<usize>, bool) {
     let mut passed_to_node_lane = false;
     for pool in &graph.pools {
-        if pool.pool_name.as_ref() == node.pool.as_ref() {
+        if pool.pool_name == node.pool {
             for lane in &pool.lanes {
-                if lane.lane.as_ref() == Some(to_node_lane) {
+                if lane.lane == *to_node_lane {
                     passed_to_node_lane = true;
                 }
-                if lane.lane.as_ref() == node.lane.as_ref() {
+                if lane.lane == node.lane {
                     for i in 0..lane.nodes.len() {
                         let cur_node = &graph.nodes[lane.nodes[i].0];
                         if cur_node.layer_id == node.layer_id {
