@@ -8,12 +8,11 @@ mod lexer;
 mod parser;
 mod to_xml;
 use clap::Parser;
+use layout::all_crossing_minimization::reduce_all_crossings;
 use layout::assign_bend_points::assign_bend_points;
-use layout::crossing_minimization::reduce_crossings;
-use layout::data_node_positioning::assign_xy_to_data_nodes;
-use layout::node_positioning::assign_xy_to_nodes;
 use layout::solve_data_layer_assignment::solve_data_layer_assignment;
 use layout::solve_layer_assignment::solve_layer_assignment;
+use layout::xy_ilp::assign_xy_ilp;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -48,10 +47,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 pub fn bpmd_to_bpmn(input: String) -> Result<String, Box<dyn std::error::Error>> {
     let mut graph = parser::parse(input)?;
     solve_layer_assignment(&mut graph);
-    reduce_crossings(&mut graph);
     solve_data_layer_assignment(&mut graph);
-    assign_xy_to_nodes(&mut graph);
-    assign_xy_to_data_nodes(&mut graph);
+    reduce_all_crossings(&mut graph);
+    assign_xy_ilp(&mut graph);
     assign_bend_points(&mut graph);
 
     Ok(to_xml::generate_bpmn(&graph))

@@ -5,8 +5,6 @@ use crate::common::datanode::DataNode;
 use crate::common::edge::Edge;
 use crate::common::node::Node;
 use crate::common::pool::Pool;
-use std::cmp::Ordering::Equal;
-use std::collections::HashMap;
 use std::fmt;
 
 /// Represents a graph consisting of nodes and edges.
@@ -138,77 +136,5 @@ impl Graph {
             bend_points: None,
         });
         index
-    }
-
-    pub fn get_nodes_by_pool_name(&self, pool_name: Option<String>) -> Vec<&Node> {
-        self.nodes.iter().filter(|n| n.pool == pool_name).collect()
-    }
-
-    pub fn sort_data_nodes(&mut self) {
-        self.data_nodes.sort_by(|a, b| {
-            let pool_a_pos = Self::get_pool_index(&self.pools, &a.pool);
-            let pool_b_pos = Self::get_pool_index(&self.pools, &b.pool);
-
-            let lane_a_pos = Self::get_lane_index(&self.pools, &a.pool, &a.lane);
-            let lane_b_pos = Self::get_lane_index(&self.pools, &b.pool, &b.lane);
-
-            let layer_a =
-                a.layer_id.unwrap_or(usize::MAX) as f64 + if a.uses_half_layer { 0.5 } else { 0.0 };
-            let layer_b =
-                b.layer_id.unwrap_or(usize::MAX) as f64 + if b.uses_half_layer { 0.5 } else { 0.0 };
-
-            pool_a_pos
-                .cmp(&pool_b_pos)
-                .then(lane_a_pos.cmp(&lane_b_pos))
-                .then(layer_a.partial_cmp(&layer_b).unwrap_or(Equal))
-        });
-    }
-
-    pub fn sort_data_nodes_by_average(&mut self, dn_averages: &HashMap<DataNodeId, f64>) {
-        self.data_nodes.sort_by(|a, b| {
-            let pool_a_pos = Self::get_pool_index(&self.pools, &a.pool);
-            let pool_b_pos = Self::get_pool_index(&self.pools, &b.pool);
-
-            let lane_a_pos = Self::get_lane_index(&self.pools, &a.pool, &a.lane);
-            let lane_b_pos = Self::get_lane_index(&self.pools, &b.pool, &b.lane);
-
-            let layer_a =
-                a.layer_id.unwrap_or(usize::MAX) as f64 + if a.uses_half_layer { 0.5 } else { 0.0 };
-            let layer_b =
-                b.layer_id.unwrap_or(usize::MAX) as f64 + if b.uses_half_layer { 0.5 } else { 0.0 };
-
-            let avg_a = dn_averages.get(&a.id).cloned().unwrap_or(0.0);
-            let avg_b = dn_averages.get(&b.id).cloned().unwrap_or(0.0);
-
-            pool_a_pos
-                .cmp(&pool_b_pos)
-                .then(lane_a_pos.cmp(&lane_b_pos))
-                .then(layer_a.partial_cmp(&layer_b).unwrap_or(Equal))
-                .then(avg_a.partial_cmp(&avg_b).unwrap_or(Equal))
-        });
-    }
-
-    fn get_pool_index(pools: &Vec<Pool>, pool_id: &Option<String>) -> usize {
-        pools
-            .iter()
-            .position(|p| &p.pool_name == pool_id)
-            .unwrap_or(usize::MAX)
-    }
-
-    fn get_lane_index(
-        pools: &Vec<Pool>,
-        pool_id: &Option<String>,
-        lane_id: &Option<String>,
-    ) -> usize {
-        for (_, pool) in pools.iter().enumerate() {
-            if &pool.pool_name == pool_id {
-                return pool
-                    .lanes
-                    .iter()
-                    .position(|l| &l.lane == lane_id)
-                    .unwrap_or(usize::MAX);
-            }
-        }
-        usize::MAX
     }
 }

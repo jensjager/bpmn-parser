@@ -28,29 +28,7 @@ pub struct Node {
     pub outgoing: Vec<EdgeId>,
 }
 
-impl Node {
-    pub fn set_position(&mut self, x: f64, y: f64, x_offset: f64, y_offset: f64) {
-        self.x = Some(x);
-        self.y = Some(y);
-        self.x_offset = Some(x_offset);
-        self.y_offset = Some(y_offset);
-    }
-
-    pub fn set_layer_id(&mut self, layer_id: usize) {
-        self.layer_id = Some(layer_id);
-    }
-
-    pub fn get_center(&self) -> (f64, f64) {
-        let x = self.x.unwrap_or(0.0);
-        let y = self.y.unwrap_or(0.0);
-        let y_offset = self.y_offset.unwrap_or(0.0);
-        let (width, height) = get_node_size(&self.event.as_ref().unwrap());
-        let center_x = x + width as f64 / 2.0;
-        let center_y = y + height as f64 / 2.0 + y_offset;
-
-        (center_x, center_y)
-    }
-}
+impl Node {}
 
 impl std::fmt::Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

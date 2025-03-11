@@ -45,10 +45,4 @@ impl Pool {
     //        self.x = Some(x);
     //        self.y = Some(y);
     //    }
-
-    pub fn set_lane_width(&mut self, width: f64) {
-        self.lanes
-            .iter_mut()
-            .for_each(|lane| lane.width = Some(width));
-    }
 }

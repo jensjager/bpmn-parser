@@ -25,15 +25,4 @@ impl Lane {
         self.nodes
             .sort_by(|a, b| nodes[a.0].layer_id.cmp(&nodes[b.0].layer_id));
     }
-
-    pub fn get_nodes_by_layer_id<'a>(
-        &self,
-        layer_id: usize,
-        nodes: &'a mut [Node],
-    ) -> Vec<&'a mut Node> {
-        nodes
-            .iter_mut()
-            .filter(|x| x.lane == self.lane && x.layer_id == Some(layer_id))
-            .collect()
-    }
 }

@@ -1,9 +1,7 @@
 use crate::common::dataedge::DataEdge;
-use crate::common::datanode::DataNode;
 use crate::common::graph::{DataNodeId, Graph, NodeId};
 use crate::common::node::Node;
 use crate::common::pool::Pool;
-use crate::layout::data_crossing_minimization::reduce_data_crossings;
 use good_lp::*;
 use std::collections::HashMap;
 
@@ -41,7 +39,7 @@ fn find_vertical_layers(
     graph: &mut Graph,
     node_distribution: HashMap<(usize, bool), (usize, Vec<DataNodeId>)>,
 ) {
-    for (num_dn_in_layer, data_node_ids) in node_distribution.into_values() {
+    for (_, data_node_ids) in node_distribution.into_values() {
         for dn_id in data_node_ids {
             let users = find_users_of_data_node(&graph.data_edges, dn_id);
             let data_node = &mut graph
