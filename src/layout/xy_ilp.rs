@@ -1,4 +1,4 @@
-use crate::common::graph::Graph;
+use crate::common::{bpmn_event::BpmnEvent, graph::Graph};
 use good_lp::*;
 use std::collections::HashMap;
 
@@ -6,7 +6,10 @@ use std::collections::HashMap;
 struct TempNode {
     id: usize,
     is_datanode: bool,
+    is_dummy: bool,
     pos_in_layer: usize,
+    layer: usize,
+    lane: Option<String>,
 }
 
 impl PartialOrd for TempNode {
@@ -22,6 +25,10 @@ impl Ord for TempNode {
 }
 
 const MIN_SPACE: i32 = 100;
+const DUMMY_MIN_SPACE: i32 = 50;
+const DATA_EDGE_WEIGHT: f64 = 0.01;
+const EDGE_WEIGHT: f64 = 2.0;
+const DUMMY_EDGE_WEIGHT: f64 = 5.0;
 
 pub fn assign_xy_ilp(graph: &mut Graph) {
     let mut vars = variables!();
@@ -32,11 +39,19 @@ pub fn assign_xy_ilp(graph: &mut Graph) {
     for node in graph.nodes.iter_mut() {
         let lane_name = node.lane.clone();
         let layer_id = node.layer_id;
+        let dummy = if node.event.clone().unwrap() == BpmnEvent::Dummy() {
+            true
+        } else {
+            false
+        };
         let entry = all_nodes.entry((lane_name, layer_id)).or_insert(Vec::new());
         entry.push(TempNode {
             id: node.id.0,
             is_datanode: false,
+            is_dummy: dummy,
             pos_in_layer: node.pos_in_layer.unwrap(),
+            layer: layer_id.unwrap(),
+            lane: node.lane.clone(),
         });
         let y_var = vars.add(variable().integer().min(100));
         y_vars.push((node.id.0, false, y_var));
@@ -48,7 +63,10 @@ pub fn assign_xy_ilp(graph: &mut Graph) {
         entry.push(TempNode {
             id: data_node.id.0,
             is_datanode: true,
+            is_dummy: false,
             pos_in_layer: data_node.pos_in_layer.unwrap(),
+            layer: layer_id.unwrap(),
+            lane: data_node.lane.clone(),
         });
         let y_var = vars.add(variable().integer().min(100));
         y_vars.push((data_node.id.0, true, y_var));
@@ -61,25 +79,32 @@ pub fn assign_xy_ilp(graph: &mut Graph) {
     for data_edge in graph.data_edges.iter() {
         let diff_var = vars.add(variable().min(0));
         diff_vars.push((true, data_edge.from.0, data_edge.to.0, diff_var));
-        objective = objective + diff_var;
+        objective = objective + diff_var * DATA_EDGE_WEIGHT;
     }
 
     for edge in graph.edges.iter() {
         let diff_var = vars.add(variable().min(0));
         diff_vars.push((false, edge.from.0, edge.to.0, diff_var));
-        objective = objective + diff_var;
+        if edge.is_dummy {
+            objective = objective + diff_var * DUMMY_EDGE_WEIGHT;
+        } else {
+            objective = objective + diff_var * EDGE_WEIGHT;
+        }
     }
 
     let mut problem = vars.minimise(objective).using(default_solver);
 
     for (_, nodes) in all_nodes.iter_mut() {
         nodes.sort();
-        dbg!(&nodes);
         for i in 1..nodes.len() {
             let upper_node =
                 get_y_var(&y_vars, &nodes[i - 1].id, &nodes[i - 1].is_datanode).unwrap();
             let lower_node = get_y_var(&y_vars, &nodes[i].id, &nodes[i].is_datanode).unwrap();
-            problem = problem.with((lower_node - upper_node).geq(MIN_SPACE));
+            if nodes[i].is_dummy {
+                problem = problem.with((lower_node - upper_node).geq(DUMMY_MIN_SPACE));
+            } else {
+                problem = problem.with((lower_node - upper_node).geq(MIN_SPACE));
+            }
         }
     }
     for (is_datanode, from, to, diff_var) in diff_vars.iter() {
@@ -120,14 +145,18 @@ fn get_y_var(
     None
 }
 
+const INITIAL_X_OFFSET: f64 = 100.0;
+const X_LAYER_WIDTH: f64 = 150.0;
+
 pub fn assign_x(graph: &mut Graph) {
     for node in graph.nodes.iter_mut() {
-        node.x = Some(node.layer_id.unwrap() as f64 * 120 as f64 + 100.0);
+        node.x = Some(node.layer_id.unwrap() as f64 * X_LAYER_WIDTH + INITIAL_X_OFFSET);
+        // TODO set offsets
         node.x_offset = Some(0.0);
         node.y_offset = Some(0.0);
     }
     for data_node in graph.data_nodes.iter_mut() {
-        data_node.x = Some(data_node.layer_id.unwrap() as f64 * 120 as f64 + 100.0);
+        data_node.x = Some(data_node.layer_id.unwrap() as f64 * X_LAYER_WIDTH + INITIAL_X_OFFSET);
         data_node.x_offset = Some(0.0);
         if data_node.uses_half_layer {
             data_node.x_offset = Some(80.0);
@@ -135,6 +164,10 @@ pub fn assign_x(graph: &mut Graph) {
         data_node.y_offset = Some(0.0);
     }
 }
+
+const LAYER_HEIGHT: f64 = 180.0;
+const DATA_NODE_LAYER_HEIGHT: f64 = 100.0;
+const LAYER_WIDTH: f64 = 80.0;
 
 fn find_pools_lanes(graph: &mut Graph) {
     let mut x = 0.0;
@@ -149,20 +182,19 @@ fn find_pools_lanes(graph: &mut Graph) {
             for node_id in lane.nodes.iter() {
                 let node = &graph.nodes[node_id.0];
                 if node.y > Some(y) {
-                    y = node.y.unwrap() + 180.0;
+                    y = node.y.unwrap() + LAYER_HEIGHT;
                 }
                 if node.x > Some(x) {
-                    x = node.x.unwrap() + 80.0;
+                    x = node.x.unwrap() + LAYER_WIDTH;
                 }
             }
             for data_node in graph.data_nodes.iter() {
                 if data_node.lane == lane.lane && data_node.pool == pool.pool_name {
                     if data_node.y > Some(y) {
-                        dbg!("helo");
-                        y = data_node.y.unwrap() + 100.0;
+                        y = data_node.y.unwrap() + DATA_NODE_LAYER_HEIGHT;
                     }
                     if data_node.x > Some(x) {
-                        x = data_node.x.unwrap() + 80.0;
+                        x = data_node.x.unwrap() + LAYER_WIDTH;
                     }
                 }
             }

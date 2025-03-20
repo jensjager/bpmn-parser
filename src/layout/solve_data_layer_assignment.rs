@@ -11,7 +11,6 @@ const AVG_HALF_LAYER_COST: f64 = 0.1;
 const STACKING_COST: f64 = 1000.0;
 const MAX_NODES_PER_LAYER: f64 = 3.0;
 
-// Maybe use even and odd numbers to differentiate full/half layers
 pub fn solve_data_layer_assignment(graph: &mut Graph) {
     solve_heuristic(graph);
 

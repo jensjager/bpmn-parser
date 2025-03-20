@@ -11,9 +11,13 @@ struct TempNode {
 
 impl Ord for TempNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.avg
-            .partial_cmp(&other.avg)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        if self.avg != other.avg {
+            self.avg
+                .partial_cmp(&other.avg)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        } else {
+            self.id.cmp(&other.id)
+        }
     }
 }
 
@@ -58,9 +62,17 @@ pub fn reduce_all_crossings(graph: &mut Graph) {
                 data_node.pos_in_layer = Some(entry.len());
             }
         }
+        println!("New go");
         for ((lane, _), nodes) in all_nodes.iter_mut() {
             for node in nodes.iter_mut() {
-                find_average(node, lane, graph)
+                find_average(node, lane, graph);
+                println!("{} - {} - {}", node.id, node.avg, node.is_datanode);
+                match &mut graph.nodes[node.id].event {
+                    Some(crate::common::bpmn_event::BpmnEvent::ActivityTask(ref mut x)) => {
+                        x.display_text = node.avg.to_string();
+                    }
+                    _ => (),
+                }
             }
 
             nodes.sort();

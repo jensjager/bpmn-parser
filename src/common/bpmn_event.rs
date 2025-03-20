@@ -41,6 +41,7 @@ pub enum BpmnEvent {
     TaskService(NodeMeta),                    // Service task with label
     TaskBusinessRule(NodeMeta),               // Business rule task with label
     TaskScript(NodeMeta),                     // Script task with label
+    Dummy(),
 }
 
 pub fn get_node_size(event: &BpmnEvent) -> (usize, usize) {
@@ -94,6 +95,8 @@ pub fn get_node_size(event: &BpmnEvent) -> (usize, usize) {
         // Data Objects
         BpmnEvent::DataStoreReference(_) => (50, 50),
         BpmnEvent::DataObjectReference(_) => (36, 50),
+
+        // BpmnEvent::Dummy() => (10, 10),
 
         // Default case for any other elements
         _ => (100, 80),

@@ -8,8 +8,10 @@ mod lexer;
 mod parser;
 mod to_xml;
 use clap::Parser;
+use common::bpmn_event::BpmnEvent;
 use layout::all_crossing_minimization::reduce_all_crossings;
 use layout::assign_bend_points::assign_bend_points;
+use layout::dummy_node_generation::generate_dummy_nodes;
 use layout::solve_data_layer_assignment::solve_data_layer_assignment;
 use layout::solve_layer_assignment::solve_layer_assignment;
 use layout::xy_ilp::assign_xy_ilp;
@@ -47,10 +49,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 pub fn bpmd_to_bpmn(input: String) -> Result<String, Box<dyn std::error::Error>> {
     let mut graph = parser::parse(input)?;
     solve_layer_assignment(&mut graph);
+    generate_dummy_nodes(&mut graph);
+    graph.data_edges.iter().for_each(|edge| {
+        println!("{} - {}", edge.from, edge.to);
+    });
     solve_data_layer_assignment(&mut graph);
     reduce_all_crossings(&mut graph);
+    println!("Hello");
     assign_xy_ilp(&mut graph);
     assign_bend_points(&mut graph);
-
+    for node in graph.nodes.iter() {
+        if node.event.clone().unwrap() == BpmnEvent::Dummy() {
+            dbg!(node);
+        }
+    }
+    for edge in graph.edges.iter() {
+        if edge.is_dummy {
+            dbg!(edge);
+        }
+    }
     Ok(to_xml::generate_bpmn(&graph))
 }

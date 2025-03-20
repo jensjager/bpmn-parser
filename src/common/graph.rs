@@ -74,6 +74,32 @@ impl Graph {
         node_id
     }
 
+    pub fn add_dummy_node(
+        &mut self,
+        pool: Option<String>,
+        lane: Option<String>,
+        layer_id: Option<usize>,
+    ) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+
+        if let Some(pool) = self.pools.iter_mut().find(|l| l.pool_name == pool) {
+            pool.add_node(lane.clone(), node_id);
+        } else {
+            // TODO throw error
+        }
+
+        self.nodes.push(Node {
+            id: node_id,
+            event: Some(BpmnEvent::Dummy()),
+            pool,
+            lane,
+            layer_id: layer_id,
+            ..Default::default()
+        });
+
+        node_id
+    }
+
     /// Adds an edge to the graph.
     pub fn add_edge(&mut self, from: NodeId, to: NodeId, text: Option<String>) -> EdgeId {
         let edge_id = EdgeId(self.edges.len());
@@ -82,11 +108,38 @@ impl Graph {
             to,
             text,
             bend_points: None, // Empty on creation, will be filled in assign_bend_points
+            ..Default::default()
         });
 
         self.nodes[from.0].outgoing.push(edge_id);
         self.nodes[to.0].incoming.push(edge_id);
         edge_id
+    }
+
+    pub fn add_dummy_edge(&mut self, from: NodeId, to: NodeId) -> EdgeId {
+        let edge_id = EdgeId(self.edges.len());
+        self.edges.push(Edge {
+            from,
+            to,
+            bend_points: None, // Empty on creation, will be filled in assign_bend_points
+            is_dummy: true,
+            ..Default::default()
+        });
+
+        self.nodes[from.0].outgoing.push(edge_id);
+        self.nodes[to.0].incoming.push(edge_id);
+        edge_id
+    }
+
+    pub fn remove_edge(&mut self, from_id: NodeId, to_id: NodeId) -> EdgeId {
+        let edge_id = self
+            .edges
+            .iter()
+            .position(|edge| edge.from == from_id && edge.to == to_id)
+            .unwrap();
+        self.edges.remove(edge_id);
+
+        EdgeId(edge_id)
     }
 
     pub fn add_data_node(
