@@ -1,4 +1,4 @@
-use crate::common::graph::{DataNodeId, NodeId};
+use crate::common::graph::{DataEdgeId, DataNodeId, NodeId};
 
 use super::bpmn_event::BpmnEvent;
 
@@ -14,9 +14,10 @@ pub struct DataNode {
     pub lane: Option<String>,
     pub layer_id: Option<usize>,
     pub uses_half_layer: bool,
-    pub above: bool,
     pub reference_node: Option<NodeId>,
     pub pos_in_layer: Option<usize>,
+    pub incoming: Vec<DataEdgeId>,
+    pub outgoing: Vec<DataEdgeId>,
 }
 
 impl DataNode {}

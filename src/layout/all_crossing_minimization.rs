@@ -1,12 +1,20 @@
 use std::collections::HashMap;
 
-use crate::common::{graph::Graph, pool::Pool};
+use crate::common::graph::{Graph, NodeId};
+use crate::common::pool::Pool;
 
 #[derive(Debug, PartialEq)]
 struct TempNode {
     id: usize,
     is_datanode: bool,
+    layer_id: Option<usize>,
     avg: f64,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct TempNodeId {
+    id: usize,
+    is_datanode: bool,
 }
 
 impl Ord for TempNode {
@@ -31,6 +39,7 @@ impl Eq for TempNode {}
 
 pub fn reduce_all_crossings(graph: &mut Graph) {
     let mut changed = true;
+    let mut prev_positions: HashMap<TempNodeId, Vec<usize>> = HashMap::new();
     while changed {
         changed = false;
 
@@ -43,6 +52,7 @@ pub fn reduce_all_crossings(graph: &mut Graph) {
             entry.push(TempNode {
                 id: node.id.0,
                 is_datanode: false,
+                layer_id: node.layer_id,
                 avg: 0.0,
             });
             if node.pos_in_layer == None {
@@ -56,6 +66,7 @@ pub fn reduce_all_crossings(graph: &mut Graph) {
             entry.push(TempNode {
                 id: data_node.id.0,
                 is_datanode: true,
+                layer_id: data_node.layer_id,
                 avg: 0.0,
             });
             if data_node.pos_in_layer == None {
@@ -79,18 +90,59 @@ pub fn reduce_all_crossings(graph: &mut Graph) {
         }
         for (_, nodes) in all_nodes.iter() {
             for (new_pos_in_layer, node) in nodes.iter().enumerate() {
+                let temp_node = TempNodeId {
+                    id: node.id,
+                    is_datanode: node.is_datanode,
+                };
+                let entry = prev_positions.entry(temp_node).or_insert(vec![]);
+                entry.push(new_pos_in_layer);
+                if entry.iter().filter(|pos| **pos == new_pos_in_layer).count() > 3 {
+                    break;
+                }
                 if node.is_datanode {
-                    if graph.data_nodes[node.id].pos_in_layer != Some(new_pos_in_layer) {
-                        changed = true;
-                    }
+                    changed = true;
                     graph.data_nodes[node.id].pos_in_layer = Some(new_pos_in_layer);
                 } else {
-                    if graph.nodes[node.id].pos_in_layer != Some(new_pos_in_layer) {
-                        changed = true;
-                    }
+                    changed = true;
                     graph.nodes[node.id].pos_in_layer = Some(new_pos_in_layer);
                 }
             }
+        }
+    }
+
+    // place_single_data_nodes(graph);
+}
+
+fn place_single_data_nodes(graph: &mut Graph) {
+    for data_node in graph.data_nodes.iter_mut() {
+        let connections: Vec<_> = graph
+            .data_edges
+            .iter()
+            .filter(|data_edge| data_edge.from == data_node.id)
+            .collect();
+
+        if connections.len() == 1 {
+            let data_edge = connections[0];
+            let to_node_pos = graph.nodes[data_edge.to.0].pos_in_layer.unwrap_or(0);
+            data_node.pos_in_layer = Some(to_node_pos + 1);
+            let layer_nodes: &Vec<NodeId> = {
+                &graph
+                    .pools
+                    .iter_mut()
+                    .find(|pool| pool.pool_name == data_node.pool)
+                    .unwrap()
+                    .lanes
+                    .iter_mut()
+                    .find(|lane| lane.lane == data_node.lane)
+                    .unwrap()
+                    .nodes
+            };
+            layer_nodes.iter().for_each(|node_id| {
+                let node = &mut graph.nodes[node_id.0];
+                if node.pos_in_layer >= data_node.pos_in_layer {
+                    node.pos_in_layer = Some(node.pos_in_layer.unwrap() + 1);
+                }
+            });
         }
     }
 }
@@ -101,7 +153,7 @@ fn find_average(temp_node: &mut TempNode, lane: &Option<String>, graph: &mut Gra
 
     if !temp_node.is_datanode {
         for edge in graph.edges.iter() {
-            if edge.to.0 == temp_node.id {
+            if edge.to.0 == temp_node.id && !edge.temp_disabled {
                 let from_node = &graph.nodes[edge.from.0];
                 count += 1;
                 if from_node.lane == *lane {
@@ -134,6 +186,11 @@ fn find_average(temp_node: &mut TempNode, lane: &Option<String>, graph: &mut Gra
         for data_edge in graph.data_edges.iter() {
             if data_edge.from.0 == temp_node.id && data_edge.is_reversed {
                 let from_node = &graph.nodes[data_edge.to.0];
+                // Dont take same layer connections into account
+                // Maybe TODO: crosslane same layer connections
+                if temp_node.layer_id == from_node.layer_id {
+                    continue;
+                }
                 count += 1;
                 if from_node.lane == *lane {
                     sum += from_node.pos_in_layer.unwrap();

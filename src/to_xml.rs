@@ -156,6 +156,9 @@ pub fn generate_bpmn(graph: &Graph) -> String {
 
         // Generate sequence flows
         for (edge_id, edge) in graph.edges.iter().enumerate() {
+            if edge.is_dummy {
+                continue;
+            }
             if graph.nodes[edge.from.0].pool == pool.pool_name
                 && graph.nodes[edge.to.0].pool == pool.pool_name
             {
@@ -251,6 +254,9 @@ pub fn generate_bpmn(graph: &Graph) -> String {
 
     // Add BPMNEdge elements
     for (edge_id, edge) in graph.edges.iter().enumerate() {
+        if edge.is_dummy {
+            continue;
+        }
         bpmn.push_str(&format!(
             "      <bpmndi:BPMNEdge id=\"Flow_{edge_id}_di\" bpmnElement=\"Flow_{edge_id}\">\n"
         ));

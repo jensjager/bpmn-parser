@@ -5,7 +5,7 @@ use crate::common::datanode::DataNode;
 use crate::common::edge::Edge;
 use crate::common::node::Node;
 use crate::common::pool::Pool;
-use std::fmt;
+use std::fmt::{self, format};
 
 /// Represents a graph consisting of nodes and edges.
 #[derive(Default)]
@@ -31,6 +31,9 @@ pub struct DataNodeId(pub usize);
 
 #[derive(PartialEq, Default, Clone, Debug, Copy, Hash, Eq)]
 pub struct EdgeId(pub usize);
+
+#[derive(PartialEq, Default, Clone, Debug, Copy, Hash, Eq)]
+pub struct DataEdgeId(pub usize);
 
 impl fmt::Display for NodeId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -93,7 +96,7 @@ impl Graph {
             event: Some(BpmnEvent::Dummy()),
             pool,
             lane,
-            layer_id: layer_id,
+            layer_id,
             ..Default::default()
         });
 
@@ -131,17 +134,6 @@ impl Graph {
         edge_id
     }
 
-    pub fn remove_edge(&mut self, from_id: NodeId, to_id: NodeId) -> EdgeId {
-        let edge_id = self
-            .edges
-            .iter()
-            .position(|edge| edge.from == from_id && edge.to == to_id)
-            .unwrap();
-        self.edges.remove(edge_id);
-
-        EdgeId(edge_id)
-    }
-
     pub fn add_data_node(
         &mut self,
         datatype: Option<BpmnEvent>,
@@ -155,7 +147,6 @@ impl Graph {
             datatype,
             pool,
             lane,
-            above: true,
             ..Default::default()
         });
 
@@ -163,15 +154,18 @@ impl Graph {
     }
 
     pub fn add_data_edge(&mut self, from: DataNodeId, to: NodeId, text: Option<String>) -> usize {
-        let index = self.data_edges.len();
+        let edge_id = self.data_edges.len();
         self.data_edges.push(DataEdge {
             from,
             to,
             text,
             is_reversed: false,
             bend_points: None,
+            ..Default::default()
         });
-        index
+
+        self.data_nodes[from.0].outgoing.push(DataEdgeId(edge_id));
+        edge_id
     }
 
     pub fn add_data_edge_reversed(
@@ -180,14 +174,54 @@ impl Graph {
         to: NodeId,
         text: Option<String>,
     ) -> usize {
-        let index = self.data_edges.len();
+        let edge_id = self.data_edges.len();
         self.data_edges.push(DataEdge {
             from,
             to,
             text,
             is_reversed: true,
             bend_points: None,
+            ..Default::default()
         });
-        index
+
+        self.data_nodes[from.0].incoming.push(DataEdgeId(edge_id));
+        edge_id
+    }
+
+    pub fn add_dummy_data_edge(&mut self, from: DataNodeId, to: NodeId, real_to: NodeId) -> usize {
+        let edge_id = self.data_edges.len();
+        self.data_edges.push(DataEdge {
+            from,
+            to,
+            is_reversed: false,
+            bend_points: None,
+            is_dummy: true,
+            text: Some(format!("{}", real_to)),
+            ..Default::default()
+        });
+
+        self.data_nodes[from.0].outgoing.push(DataEdgeId(edge_id));
+        edge_id
+    }
+
+    pub fn add_dummy_data_edge_reversed(
+        &mut self,
+        from: DataNodeId,
+        to: NodeId,
+        real_from: NodeId,
+    ) -> usize {
+        let edge_id = self.data_edges.len();
+        self.data_edges.push(DataEdge {
+            from,
+            to,
+            is_reversed: true,
+            bend_points: None,
+            is_dummy: true,
+            text: Some(format!("{}", real_from)),
+            ..Default::default()
+        });
+
+        self.data_nodes[from.0].incoming.push(DataEdgeId(edge_id));
+        edge_id
     }
 }
