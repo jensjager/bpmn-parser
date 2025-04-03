@@ -5,3 +5,4 @@ Cargo.lock
 input.txt
 generated_bpmn*
 *.xml
+/input
