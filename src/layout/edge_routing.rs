@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::common::bpmn_event::get_node_size;
 use crate::common::datanode::DataNode;
-use crate::common::graph::{EdgeId, Graph};
+use crate::common::graph::{EdgeId, Graph, NodeId};
 use crate::common::node::Node;
 use crate::layout;
 
@@ -27,19 +27,20 @@ pub fn edge_routing(graph: &mut Graph) {
     let mut layered_edges = get_layered_edges(graph);
 
     let mut sorted_edges: HashMap<Option<usize>, HashMap<usize, Vec<RoutingEdge>>> = HashMap::new();
-    for ((lane, layer_id), routing_edges) in layered_edges.iter_mut() {
+    for ((_, layer_id), routing_edges) in layered_edges.iter_mut() {
         sorted_edges.insert(*layer_id, route_edges(routing_edges));
     }
 
     add_bend_points(graph, sorted_edges);
 }
 
+// TODO implement actual sorting of edges
 fn route_edges(routing_edges: &mut Vec<RoutingEdge>) -> HashMap<usize, Vec<RoutingEdge>> {
     let mut sorted_edges: HashMap<usize, Vec<RoutingEdge>> = HashMap::new();
 
     for routing_edge in routing_edges.iter_mut() {
         let mut inserted = false;
-        for (i, edges) in sorted_edges.iter_mut() {
+        for (_, edges) in sorted_edges.iter_mut() {
             if edges
                 .iter()
                 .find(|edge| edge.from == routing_edge.from && routing_edge.is_reversed.is_none())
@@ -61,6 +62,7 @@ fn route_edges(routing_edges: &mut Vec<RoutingEdge>) -> HashMap<usize, Vec<Routi
     sorted_edges
 }
 
+#[allow(dead_code)]
 fn should_come_before(a: &RoutingEdge, b: &RoutingEdge) -> bool {
     let in_between = a.from >= b.from && a.to <= b.to;
 
@@ -72,14 +74,33 @@ fn should_come_before(a: &RoutingEdge, b: &RoutingEdge) -> bool {
 fn get_layered_edges(
     graph: &mut Graph,
 ) -> HashMap<(Option<String>, Option<usize>), Vec<RoutingEdge>> {
+    let mut edges_to_skip = Vec::new();
     let mut layered_edges: HashMap<(Option<String>, Option<usize>), Vec<RoutingEdge>> =
         HashMap::new();
     for (i, edge) in graph.edges.iter().enumerate() {
         if edge.temp_disabled {
             continue;
         }
+        if edge.dummy.is_some() {
+            let dummy = edge.dummy.as_ref().unwrap();
+            if dummy.is_data {
+                if graph
+                    .data_edges
+                    .iter()
+                    .find(|dn| {
+                        dn.from.0 == dummy.from.unwrap()
+                            && dn.to.0 == dummy.to.unwrap()
+                            && dn.is_reversed == dummy.is_reversed
+                            && dn.bend_points.is_some()
+                    })
+                    .is_some()
+                {
+                    edges_to_skip.push(i);
+                    continue;
+                }
+            }
+        }
         let from_node = &graph.nodes[edge.from.0];
-        let to_node = &graph.nodes[edge.to.0];
         layered_edges
             .entry((from_node.lane.clone(), from_node.layer_id.clone()))
             .or_insert(vec![])
@@ -97,7 +118,28 @@ fn get_layered_edges(
                 },
             });
     }
+    let mut data_edges_to_skip = Vec::new();
     for (i, data_edge) in graph.data_edges.iter().enumerate() {
+        if data_edge.temp_disabled || data_edge.bend_points.is_some() {
+            continue;
+        }
+        if data_edge.dummy.is_some() {
+            let dummy = data_edge.dummy.as_ref().unwrap();
+            if graph
+                .data_edges
+                .iter()
+                .find(|dn| {
+                    dn.from.0 == dummy.from.unwrap()
+                        && dn.to.0 == dummy.to.unwrap()
+                        && dn.is_reversed == dummy.is_reversed
+                        && dn.bend_points.is_some()
+                })
+                .is_some()
+            {
+                data_edges_to_skip.push(i);
+                continue;
+            }
+        }
         let from_node = &graph.data_nodes[data_edge.from.0];
         let to_node = &graph.nodes[data_edge.to.0];
         if data_edge.is_reversed {
@@ -136,6 +178,13 @@ fn get_layered_edges(
                 });
         }
     }
+    edges_to_skip
+        .iter()
+        .for_each(|i| graph.edges[*i].dummy.as_mut().unwrap().skip = true);
+    data_edges_to_skip
+        .iter()
+        .for_each(|i| graph.data_edges[*i].dummy.as_mut().unwrap().skip = true);
+
     layered_edges
 }
 
@@ -144,8 +193,8 @@ fn add_bend_points(
     sorted_edges: HashMap<Option<usize>, HashMap<usize, Vec<RoutingEdge>>>,
 ) {
     for (_, layered_edges) in sorted_edges.iter() {
-        let layer_size = layered_edges.len();
         for (i, routing_edges) in layered_edges.iter() {
+            let layer_size = routing_edges.len();
             for routing_edge in routing_edges.iter() {
                 let mut bend_points = vec![];
                 if routing_edge.is_reversed.is_some() {
@@ -277,7 +326,7 @@ fn get_data_mid_point(
     if *size == 1 {
         let mid_x = from_x + (layout::xy_ilp::LAYER_WIDTH / 2.0);
         return vec![(mid_x, from_y), (mid_x, to_y)];
-    }
+    };
     let available_space = layout::xy_ilp::LAYER_WIDTH - 20.0;
     let gap = available_space / (*size as f64 - 1.0);
     let x_start = from_x + (layout::xy_ilp::LAYER_WIDTH - available_space) / 2.0;

@@ -2,10 +2,11 @@
 use crate::common::bpmn_event::BpmnEvent;
 use crate::common::dataedge::DataEdge;
 use crate::common::datanode::DataNode;
+use crate::common::dummy::Dummy;
 use crate::common::edge::Edge;
 use crate::common::node::Node;
 use crate::common::pool::Pool;
-use std::fmt::{self, format};
+use std::fmt::{self};
 
 /// Represents a graph consisting of nodes and edges.
 #[derive(Default)]
@@ -119,13 +120,53 @@ impl Graph {
         edge_id
     }
 
-    pub fn add_dummy_edge(&mut self, from: NodeId, to: NodeId) -> EdgeId {
+    pub fn add_dummy_edge(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        real_from: Option<usize>,
+        real_to: Option<usize>,
+        data_node: bool,
+    ) -> EdgeId {
         let edge_id = EdgeId(self.edges.len());
         self.edges.push(Edge {
             from,
             to,
             bend_points: None, // Empty on creation, will be filled in assign_bend_points
-            is_dummy: true,
+            dummy: Some(Dummy {
+                is_data: data_node,
+                is_reversed: false,
+                from: real_from,
+                to: real_to,
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+
+        self.nodes[from.0].outgoing.push(edge_id);
+        self.nodes[to.0].incoming.push(edge_id);
+        edge_id
+    }
+
+    pub fn add_dummy_edge_from_data_node(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        real_from: usize,
+        real_to: usize,
+    ) -> EdgeId {
+        let edge_id = EdgeId(self.edges.len());
+        self.edges.push(Edge {
+            from,
+            to,
+            bend_points: None, // Empty on creation, will be filled in assign_bend_points
+            dummy: Some(Dummy {
+                is_data: true,
+                is_reversed: false,
+                from: Some(real_from),
+                to: Some(real_to),
+                ..Default::default()
+            }),
             ..Default::default()
         });
 
@@ -188,15 +229,26 @@ impl Graph {
         edge_id
     }
 
-    pub fn add_dummy_data_edge(&mut self, from: DataNodeId, to: NodeId, real_to: NodeId) -> usize {
+    pub fn add_dummy_data_edge(
+        &mut self,
+        from: DataNodeId,
+        to: NodeId,
+        real_from: usize,
+        real_to: usize,
+    ) -> usize {
         let edge_id = self.data_edges.len();
         self.data_edges.push(DataEdge {
             from,
             to,
             is_reversed: false,
             bend_points: None,
-            is_dummy: true,
-            text: Some(format!("{}", real_to)),
+            dummy: Some(Dummy {
+                is_data: true,
+                is_reversed: false,
+                from: Some(real_from),
+                to: Some(real_to),
+                ..Default::default()
+            }),
             ..Default::default()
         });
 
@@ -208,7 +260,8 @@ impl Graph {
         &mut self,
         from: DataNodeId,
         to: NodeId,
-        real_from: NodeId,
+        real_from: usize,
+        real_to: usize,
     ) -> usize {
         let edge_id = self.data_edges.len();
         self.data_edges.push(DataEdge {
@@ -216,8 +269,13 @@ impl Graph {
             to,
             is_reversed: true,
             bend_points: None,
-            is_dummy: true,
-            text: Some(format!("{}", real_from)),
+            dummy: Some(Dummy {
+                is_data: true,
+                is_reversed: true,
+                from: Some(real_to),
+                to: Some(real_from),
+                ..Default::default()
+            }),
             ..Default::default()
         });
 

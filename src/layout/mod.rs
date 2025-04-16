@@ -1,5 +1,5 @@
 pub mod all_crossing_minimization;
-pub mod assign_bend_points;
+pub mod data_edge_routing;
 pub mod dummy_node_generation;
 pub mod edge_routing;
 pub mod replace_dummy_nodes;

@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 use crate::common::{
-    graph::{DataNodeId, EdgeId, Graph, NodeId},
-    node::Node,
+    graph::{DataNodeId, Graph, NodeId},
     pool::Pool,
 };
 
@@ -274,39 +273,33 @@ fn create_dummy_nodes(
         }
         if temp_edge.to_is_data_node || temp_edge.from_is_data_node {
             let (from_id, to_id, is_reversed) = if temp_edge.from_is_data_node {
+                disable_data_edge(graph, temp_edge.from_id, temp_edge.to_id, false);
                 (temp_edge.from_id, temp_edge.to_id, false)
             } else {
+                disable_data_edge(graph, temp_edge.to_id, temp_edge.from_id, true);
                 (temp_edge.to_id, temp_edge.from_id, true)
             };
-
-            if let Some(data_edge) = graph
-                .data_edges
-                .iter_mut()
-                .find(|data_edge| data_edge.from.0 == from_id && data_edge.to.0 == to_id)
-            {
-                data_edge.temp_disabled = true;
-            }
 
             let (pool, lane, layer) = &dummy_list[0];
             let new_dummy_id = graph.add_dummy_node(pool.clone(), lane.clone(), *layer);
             // First dummy edge needs to be a data edge if data edge is not reversed
             if is_reversed {
-                graph.add_dummy_edge(NodeId(from_id), new_dummy_id);
+                graph.add_dummy_edge_from_data_node(NodeId(to_id), new_dummy_id, from_id, to_id);
             } else {
-                graph.add_dummy_data_edge(DataNodeId(from_id), new_dummy_id, NodeId(to_id));
+                graph.add_dummy_data_edge(DataNodeId(from_id), new_dummy_id, from_id, to_id);
             }
 
             let mut prev_id = new_dummy_id;
             for (pool, lane, layer) in dummy_list.iter().skip(1) {
                 let new_dummy_id = graph.add_dummy_node(pool.clone(), lane.clone(), *layer);
-                graph.add_dummy_edge(prev_id, new_dummy_id);
+                graph.add_dummy_edge(prev_id, new_dummy_id, Some(from_id), Some(to_id), true);
                 prev_id = new_dummy_id;
             }
             // Last dummy edge needs to be a data edge if data edge is reversed
             if is_reversed {
-                graph.add_dummy_data_edge_reversed(DataNodeId(from_id), prev_id, NodeId(from_id));
+                graph.add_dummy_data_edge_reversed(DataNodeId(from_id), prev_id, from_id, to_id);
             } else {
-                graph.add_dummy_edge(prev_id, NodeId(to_id));
+                graph.add_dummy_edge_from_data_node(prev_id, NodeId(to_id), from_id, to_id);
             }
         } else {
             if let Some(edge) = graph
@@ -319,10 +312,18 @@ fn create_dummy_nodes(
             let mut prev_id = NodeId(temp_edge.from_id);
             for (pool, lane, layer) in dummy_list {
                 let new_dummy_id = graph.add_dummy_node(pool, lane, layer);
-                graph.add_dummy_edge(prev_id, new_dummy_id);
+                graph.add_dummy_edge(prev_id, new_dummy_id, None, None, false);
                 prev_id = new_dummy_id;
             }
-            graph.add_dummy_edge(prev_id, NodeId(temp_edge.to_id));
+            graph.add_dummy_edge(prev_id, NodeId(temp_edge.to_id), None, None, false);
         }
+    }
+}
+
+fn disable_data_edge(graph: &mut Graph, from_id: usize, to_id: usize, reversed: bool) {
+    if let Some(data_edge) = graph.data_edges.iter_mut().find(|data_edge| {
+        data_edge.from.0 == from_id && data_edge.to.0 == to_id && data_edge.is_reversed == reversed
+    }) {
+        data_edge.temp_disabled = true;
     }
 }

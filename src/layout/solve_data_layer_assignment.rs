@@ -8,7 +8,6 @@ use std::collections::HashMap;
 const AVG_POS_COST: f64 = 0.2;
 const HALF_LAYER_COST: f64 = 0.005;
 const AVG_HALF_LAYER_COST: f64 = 0.1;
-const STACKING_COST: f64 = 1000.0;
 const MAX_NODES_PER_LAYER: f64 = 3.0;
 
 pub fn solve_data_layer_assignment(graph: &mut Graph) {
@@ -34,6 +33,7 @@ pub fn solve_data_layer_assignment(graph: &mut Graph) {
     // find_vertical_layers(graph, node_distribution);
 }
 
+#[allow(dead_code)]
 fn find_vertical_layers(
     graph: &mut Graph,
     node_distribution: HashMap<(usize, bool), (usize, Vec<DataNodeId>)>,

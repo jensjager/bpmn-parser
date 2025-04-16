@@ -1,6 +1,7 @@
 pub mod bpmn_event;
 pub mod dataedge;
 pub mod datanode;
+pub mod dummy;
 pub mod edge;
 pub mod graph;
 pub mod lane;

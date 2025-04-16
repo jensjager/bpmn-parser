@@ -30,8 +30,8 @@ impl Ord for TempNode {
 const STARTING_MIN_VALUE: f64 = 100.0;
 const MIN_SPACE: f64 = 100.0;
 const MIN_SPACE_IN_GATEWAY_LAYER: f64 = 50.0;
-const DUMMY_MIN_SPACE: f64 = 100.0;
-const EDGE_WEIGHT: f64 = 1.0;
+const DUMMY_MIN_SPACE: f64 = 50.0;
+const EDGE_WEIGHT: f64 = 10.0;
 const DATA_EDGE_WEIGHT: f64 = 0.01;
 const DUMMY_EDGE_WEIGHT: f64 = 2.0;
 const MIN_SPACE_BETWEEN_DUMMYS: f64 = 5.0;
@@ -96,7 +96,7 @@ pub fn assign_xy_ilp(graph: &mut Graph) {
         }
         let diff_var = vars.add(variable().min(0.0));
         diff_vars.push((false, edge.from.0, false, edge.to.0, diff_var));
-        if edge.is_dummy {
+        if edge.dummy.is_some() {
             objective = objective + diff_var * DUMMY_EDGE_WEIGHT;
         } else {
             objective = objective + diff_var * EDGE_WEIGHT;

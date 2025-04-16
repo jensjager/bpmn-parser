@@ -140,14 +140,14 @@ pub fn generate_bpmn(graph: &Graph) -> String {
         for data_node in graph.data_nodes.iter() {
             let data_node_id = data_node.id;
             match data_node.datatype.as_ref().unwrap() {
-                BpmnEvent::DataStoreReference(_) => {
+                BpmnEvent::DataStoreReference(meta) => {
                     bpmn.push_str(&format!(
-                        "        <bpmn:dataStoreReference id=\"Data_Node_{data_node_id}\" />\n"
+                        "        <bpmn:dataStoreReference id=\"Data_Node_{data_node_id}\" name={:?} />\n", meta.node_meta.display_text
                     ));
                 }
-                BpmnEvent::DataObjectReference(_) => {
+                BpmnEvent::DataObjectReference(meta) => {
                     bpmn.push_str(&format!(
-                        "        <bpmn:dataObjectReference id=\"Data_Node_{data_node_id}\" />\n"
+                        "        <bpmn:dataObjectReference id=\"Data_Node_{data_node_id}\" name={:?} />\n", meta.node_meta.display_text
                     ));
                 }
                 _ => {}
@@ -156,7 +156,7 @@ pub fn generate_bpmn(graph: &Graph) -> String {
 
         // Generate sequence flows
         for (edge_id, edge) in graph.edges.iter().enumerate() {
-            if edge.is_dummy {
+            if edge.dummy.is_some() {
                 continue;
             }
             if graph.nodes[edge.from.0].pool == pool.pool_name
@@ -254,7 +254,7 @@ pub fn generate_bpmn(graph: &Graph) -> String {
 
     // Add BPMNEdge elements
     for (edge_id, edge) in graph.edges.iter().enumerate() {
-        if edge.is_dummy {
+        if edge.dummy.is_some() {
             continue;
         }
         bpmn.push_str(&format!(

@@ -9,7 +9,7 @@ mod parser;
 mod to_xml;
 use clap::Parser;
 use layout::all_crossing_minimization::reduce_all_crossings;
-use layout::assign_bend_points::assign_bend_points;
+use layout::data_edge_routing::find_data_edges;
 use layout::dummy_node_generation::generate_dummy_nodes;
 use layout::edge_routing::edge_routing;
 use layout::replace_dummy_nodes::replace_dummy_nodes;
@@ -54,9 +54,9 @@ pub fn bpmd_to_bpmn(input: String) -> Result<String, Box<dyn std::error::Error>>
     generate_dummy_nodes(&mut graph);
     reduce_all_crossings(&mut graph);
     assign_xy_ilp(&mut graph);
+    find_data_edges(&mut graph);
     edge_routing(&mut graph);
     replace_dummy_nodes(&mut graph);
-    assign_bend_points(&mut graph);
 
     Ok(to_xml::generate_bpmn(&graph))
 }

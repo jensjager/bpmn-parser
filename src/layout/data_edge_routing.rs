@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 const NODE_MARGIN: usize = 5;
 
-pub fn assign_bend_points(graph: &mut Graph) {
+pub fn find_data_edges(graph: &mut Graph) {
     // HashMap to store coordinates of obstacles with node id and is_datanode as key
     // HashMap stores tuples of top left and bottom right coordinates of obstacles
     let mut matrix: HashMap<(usize, bool), (usize, usize, usize, usize)> = HashMap::new();
@@ -115,6 +115,9 @@ fn data_edge_routing(
     graph: &mut Graph,
 ) {
     for data_edge in graph.data_edges.iter_mut() {
+        if data_edge.dummy.is_some() {
+            continue;
+        }
         let (start_x_y, end_x_y) = find_start_and_end_points(
             &graph.data_nodes[data_edge.from.0],
             &graph.nodes[data_edge.to.0],
@@ -137,6 +140,9 @@ fn data_edge_routing(
         if bend_points.len() > 0 {
             let edge = find_shortest_path(&bend_points);
             data_edge.bend_points = Some(vec![edge.0, edge.1]);
+            if data_edge.is_reversed {
+                data_edge.bend_points.as_mut().unwrap().reverse();
+            }
         }
     }
 }

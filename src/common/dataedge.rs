@@ -1,3 +1,4 @@
+use crate::common::dummy::Dummy;
 use crate::common::graph::DataNodeId;
 use crate::common::graph::NodeId;
 
@@ -9,7 +10,7 @@ pub struct DataEdge {
     pub is_reversed: bool,
     pub bend_points: Option<Vec<(f64, f64)>>,
     pub temp_disabled: bool,
-    pub is_dummy: bool,
+    pub dummy: Option<Dummy>,
 }
 
 impl DataEdge {}
