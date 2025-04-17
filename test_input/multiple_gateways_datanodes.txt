@@ -1,0 +1,36 @@
+# Start Event
+X ->Branch1 "Condition 1" ->Branch2 "Cond 2" ->Branch3 "Cond 3"
+
+G <- Branch1
+- Task B1 @task1
+G ->JoinPoint "Joining Branches"
+
+G <- Branch2
+- Task B1 @task2
+G ->JoinPoint "Joining Branches"
+
+G <- Branch3
+- Task B1 @task3
+X ->Branch4 "Condition 4" ->Branch5 "Condition 5"
+
+G <- Branch4
+- Task B2 @task6
+G ->JoinPoint2 "Joining Branches"
+
+G <- Branch5
+- Task B3 @task7
+G ->JoinPoint2 "Joining Branches"
+
+X<-JoinPoint2
+
+G ->JoinPoint "Joining Branches"
+
+X<-JoinPoint
+
+- Task @task4
+- Task @task5
+. End Event
+
+SD <-task2 ->task5 ->task2
+SD <-task2 ->task5
+SD <-task1

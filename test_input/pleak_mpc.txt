@@ -1,0 +1,21 @@
+# Start
+- Secret share satellite data A @dataA
+- Send Share 2 @share2
+- Send Share 3 @share3
+- message1 @message1
+- Will my satellites collide with Country B satellites? @collision_check
+- Send result @send_result
+- message2 @message2
+- message3 @message3
+- Reconstruct the result @reconstruct_result
+. End
+
+OD Satellite data A ->dataA
+OD Data A share 1 <-dataA ->collision_check
+OD Data A share 2 <-dataA ->share2
+OD Data A share 3 <-dataA ->share3
+OD Data B share 1->collision_check <-message1
+OD Result share 1 <-collision_check ->send_result ->reconstruct_result
+OD Result share 2 ->reconstruct_result <-message2
+OD Result share 3->reconstruct_result <-message3
+OD Result <-reconstruct_result

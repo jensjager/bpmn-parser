@@ -1,0 +1,26 @@
+# Start
+- Receive Claim Data @claimData
+- Verify Claim Details @verifyClaim
+- Assess Damage @damageAssessment
+- Is Claim Valid? @claimValidity
+X -> ValidBranch "Valid" -> InvalidBranch "Invalid"
+
+G <- ValidBranch
+- Approve Claim @approveClaim
+G -> MergePoint
+
+G <- InvalidBranch
+- Reject Claim @rejectClaim
+G -> MergePoint "MergePoint"
+
+X<-MergePoint
+- Notify Claimant @notifyClaim
+- Archive Claim @archiveClaim
+. End
+
+
+OD Claim Data ->claimData
+OD Verification Record <-claimData ->verifyClaim
+OD Damage Report <-verifyClaim ->damageAssessment
+OD Approval Data <-approveClaim ->notifyClaim ->archiveClaim
+OD Rejection Record <-rejectClaim ->notifyClaim ->archiveClaim

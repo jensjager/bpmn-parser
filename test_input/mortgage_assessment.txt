@@ -1,0 +1,23 @@
+# Start
+- Make Assessment @Start
+
+X ->Branch1 "Yes" ->Branch2 "No"
+
+G <- Branch1
+- Offer Mortgage @offer-mortgage
+G ->Joinpoint
+
+G <- Branch2
+- Cant Offer Mortgage @cant-offer-mortgage
+G ->Joinpoint "Joinpoint"
+
+X<-Joinpoint
+
+- Archive Details @archive
+
+. End
+
+OD Assessment <-Start ->offer-mortgage
+OD Assessment <-Start ->cant-offer-mortgage
+
+OD Archive <-offer-mortgage <-cant-offer-mortgage ->archive

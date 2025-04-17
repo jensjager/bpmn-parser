@@ -1,0 +1,42 @@
+# Start Event
+- Receive Order @receiveOrder
+- Validate Order @validateOrder
+- Check Inventory @checkInventory
+X -> InStock "In Stock" -> OutOfStock "Out of Stock"
+
+G <- InStock
+- Reserve Inventory @reserveInventory
+G -> InventoryConfirmed "Inventory Confirmed"
+
+G <- OutOfStock
+- Notify OutOfStock @notifyOutOfStock
+G -> InventoryConfirmed "Inventory Confirmed"
+
+X<-InventoryConfirmed
+
+- Process Payment @processPayment
+X -> PaymentApproved "Payment Approved" -> PaymentDeclined "Payment Declined"
+
+G <- PaymentApproved
+- Confirm Order @confirmOrder
+G -> OrderFinalized "Order Finalized"
+
+G <- PaymentDeclined
+- Cancel Order @cancelOrder
+G -> OrderFinalized "Order Finalized"
+
+X<-OrderFinalized
+
+- Dispatch Order @dispatchOrder
+- Archive Order @archiveOrder
+. End Event
+
+OD Order Data ->receiveOrder
+OD Validation Record <-receiveOrder ->validateOrder
+OD Inventory Request <-checkInventory ->reserveInventory
+OD Payment Request <-processPayment ->confirmOrder
+OD Cancellation Record <-cancelOrder ->archiveOrder
+OD Dispatch Record <-dispatchOrder ->archiveOrder
+
+SD InventoryData <-reserveInventory ->checkInventory
+SD PaymentData   <-processPayment ->confirmOrder

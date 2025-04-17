@@ -1,0 +1,43 @@
+# Start Event
+- Receive Return Request @receiveReturn
+- Inspect Returned Product @inspectProduct
+- Evaluate Product Condition? @conditionCheck
+X -> GoodBranch "Good Condition" -> PoorBranch "Poor Condition"
+
+G <- GoodBranch
+- Approve Return @approveReturn
+G -> MergeApproval "Merge Approval"
+
+G <- PoorBranch
+- Reject Return @rejectReturn
+G -> MergeApproval "Merge Approval"
+
+X<-MergeApproval
+
+- Process Refund Options @refundOptions
+X -> OriginalRefund "Refund to Original Payment" -> StoreCredit "Refund as Store Credit"
+
+G <- OriginalRefund
+- Initiate Refund @initiateRefund
+G -> MergeRefund "Merge Refund Options"
+
+G <- StoreCredit
+- Issue Credit @issueCredit
+G -> MergeRefund "Merge Refund Options"
+
+X<-MergeRefund
+
+- Notify Customer @notifyCustomer
+- Archive Return @archiveReturn
+. End Event
+
+OD Return Request ->receiveReturn
+OD Inspection Report <-receiveReturn ->inspectProduct
+OD Approval Record <-approveReturn ->notifyCustomer ->archiveReturn
+OD Rejection Record <-rejectReturn ->notifyCustomer ->archiveReturn
+OD Refund Confirmation <-initiateRefund ->notifyCustomer
+OD Credit Record <-issueCredit ->notifyCustomer
+
+SD <-approveReturn ->initiateRefund ->issueCredit
+SD <-rejectReturn ->notifyCustomer
+SD <-receiveReturn ->inspectProduct
