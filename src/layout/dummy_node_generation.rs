@@ -284,7 +284,13 @@ fn create_dummy_nodes(
             let new_dummy_id = graph.add_dummy_node(pool.clone(), lane.clone(), *layer);
             // First dummy edge needs to be a data edge if data edge is not reversed
             if is_reversed {
-                graph.add_dummy_edge_from_data_node(NodeId(to_id), new_dummy_id, from_id, to_id);
+                graph.add_dummy_edge_from_data_node(
+                    NodeId(to_id),
+                    new_dummy_id,
+                    from_id,
+                    to_id,
+                    is_reversed,
+                );
             } else {
                 graph.add_dummy_data_edge(DataNodeId(from_id), new_dummy_id, from_id, to_id);
             }
@@ -292,14 +298,26 @@ fn create_dummy_nodes(
             let mut prev_id = new_dummy_id;
             for (pool, lane, layer) in dummy_list.iter().skip(1) {
                 let new_dummy_id = graph.add_dummy_node(pool.clone(), lane.clone(), *layer);
-                graph.add_dummy_edge(prev_id, new_dummy_id, Some(from_id), Some(to_id), true);
+                graph.add_dummy_edge_from_data_node(
+                    prev_id,
+                    new_dummy_id,
+                    from_id,
+                    to_id,
+                    is_reversed,
+                );
                 prev_id = new_dummy_id;
             }
             // Last dummy edge needs to be a data edge if data edge is reversed
             if is_reversed {
                 graph.add_dummy_data_edge_reversed(DataNodeId(from_id), prev_id, from_id, to_id);
             } else {
-                graph.add_dummy_edge_from_data_node(prev_id, NodeId(to_id), from_id, to_id);
+                graph.add_dummy_edge_from_data_node(
+                    prev_id,
+                    NodeId(to_id),
+                    from_id,
+                    to_id,
+                    is_reversed,
+                );
             }
         } else {
             if let Some(edge) = graph
@@ -312,10 +330,10 @@ fn create_dummy_nodes(
             let mut prev_id = NodeId(temp_edge.from_id);
             for (pool, lane, layer) in dummy_list {
                 let new_dummy_id = graph.add_dummy_node(pool, lane, layer);
-                graph.add_dummy_edge(prev_id, new_dummy_id, None, None, false);
+                graph.add_dummy_edge(prev_id, new_dummy_id);
                 prev_id = new_dummy_id;
             }
-            graph.add_dummy_edge(prev_id, NodeId(temp_edge.to_id), None, None, false);
+            graph.add_dummy_edge(prev_id, NodeId(temp_edge.to_id));
         }
     }
 }

@@ -120,24 +120,13 @@ impl Graph {
         edge_id
     }
 
-    pub fn add_dummy_edge(
-        &mut self,
-        from: NodeId,
-        to: NodeId,
-        real_from: Option<usize>,
-        real_to: Option<usize>,
-        data_node: bool,
-    ) -> EdgeId {
+    pub fn add_dummy_edge(&mut self, from: NodeId, to: NodeId) -> EdgeId {
         let edge_id = EdgeId(self.edges.len());
         self.edges.push(Edge {
             from,
             to,
             bend_points: None, // Empty on creation, will be filled in assign_bend_points
             dummy: Some(Dummy {
-                is_data: data_node,
-                is_reversed: false,
-                from: real_from,
-                to: real_to,
                 ..Default::default()
             }),
             ..Default::default()
@@ -154,6 +143,7 @@ impl Graph {
         to: NodeId,
         real_from: usize,
         real_to: usize,
+        is_reversed: bool,
     ) -> EdgeId {
         let edge_id = EdgeId(self.edges.len());
         self.edges.push(Edge {
@@ -162,7 +152,7 @@ impl Graph {
             bend_points: None, // Empty on creation, will be filled in assign_bend_points
             dummy: Some(Dummy {
                 is_data: true,
-                is_reversed: false,
+                is_reversed,
                 from: Some(real_from),
                 to: Some(real_to),
                 ..Default::default()
@@ -272,8 +262,8 @@ impl Graph {
             dummy: Some(Dummy {
                 is_data: true,
                 is_reversed: true,
-                from: Some(real_to),
-                to: Some(real_from),
+                from: Some(real_from),
+                to: Some(real_to),
                 ..Default::default()
             }),
             ..Default::default()

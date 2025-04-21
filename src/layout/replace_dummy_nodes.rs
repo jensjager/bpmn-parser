@@ -1,6 +1,6 @@
 use crate::common::bpmn_event::BpmnEvent;
 use crate::common::edge::Edge;
-use crate::common::graph::{EdgeId, Graph, NodeId};
+use crate::common::graph::{DataNodeId, EdgeId, Graph, NodeId};
 use crate::common::node::Node;
 
 pub fn replace_dummy_nodes(graph: &mut Graph) {
@@ -37,14 +37,18 @@ fn replace_node_dummys(graph: &mut Graph) {
                 let last_edge = &graph
                     .data_edges
                     .iter()
+                    .find(|data_edge| {
+                        data_edge.from
+                            == DataNodeId(last_edge.dummy.as_ref().unwrap().from.unwrap())
+                            && data_edge.to == last_edge.to
+                            && data_edge.is_reversed
+                    })
+                    .unwrap();
+                let last_edge = &graph
+                    .data_edges
+                    .iter()
                     .find(|data_edge| data_edge.to == last_edge.to && data_edge.is_reversed)
                     .unwrap();
-                // TODO fix last_edge.bend_points.is_none()
-                // Happens with pleak_mpc input
-                // Temp fix: continue when last_edge.bend_points.is_none()
-                if last_edge.bend_points.is_none() {
-                    continue;
-                }
                 last_edge
                     .bend_points
                     .as_ref()
