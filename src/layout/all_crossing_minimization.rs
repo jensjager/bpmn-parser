@@ -145,8 +145,8 @@ fn find_average(temp_node: &mut TempNode, lane: &Option<String>, graph: &mut Gra
 
     if !temp_node.is_datanode {
         for edge in graph.edges.iter() {
-            if edge.to.0 == temp_node.id && !edge.temp_disabled {
-                let from_node = &graph.nodes[edge.from.0];
+            if edge.from.0 == temp_node.id && !edge.temp_disabled {
+                let from_node = &graph.nodes[edge.to.0];
                 count += 1;
                 if from_node.lane == *lane {
                     sum += from_node.pos_in_layer.unwrap();
@@ -160,7 +160,7 @@ fn find_average(temp_node: &mut TempNode, lane: &Option<String>, graph: &mut Gra
             }
         }
         for data_edge in graph.data_edges.iter() {
-            if data_edge.to.0 == temp_node.id {
+            if data_edge.to.0 == temp_node.id && data_edge.is_reversed && !data_edge.temp_disabled {
                 let from_data_node = &graph.data_nodes[data_edge.from.0];
                 count += 1;
                 if from_data_node.lane == *lane {
@@ -176,10 +176,12 @@ fn find_average(temp_node: &mut TempNode, lane: &Option<String>, graph: &mut Gra
         }
     } else {
         for data_edge in graph.data_edges.iter() {
-            if data_edge.from.0 == temp_node.id && data_edge.is_reversed {
+            if data_edge.from.0 == temp_node.id
+                && !data_edge.is_reversed
+                && !data_edge.temp_disabled
+            {
                 let from_node = &graph.nodes[data_edge.to.0];
                 // Dont take same layer connections into account
-                // Maybe TODO: crosslane same layer connections
                 if temp_node.layer_id == from_node.layer_id {
                     continue;
                 }

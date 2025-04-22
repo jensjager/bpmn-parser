@@ -96,7 +96,7 @@ pub fn get_node_size(event: &BpmnEvent) -> (usize, usize) {
         BpmnEvent::DataStoreReference(_) => (50, 50),
         BpmnEvent::DataObjectReference(_) => (36, 50),
 
-        // BpmnEvent::Dummy() => (10, 10),
+        BpmnEvent::Dummy() => (10, 10),
 
         // Default case for any other elements
         _ => (100, 80),

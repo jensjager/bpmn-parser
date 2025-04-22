@@ -216,6 +216,7 @@ fn get_y_var(
 
 const INITIAL_X_OFFSET: f64 = 50.0;
 const X_LAYER_WIDTH: f64 = 150.0;
+const HALF_LAYER_OFFSET: f64 = 75.0;
 const LARGEST_NODE_HEIGHT: usize = 80;
 const LARGEST_NODE_WIDTH: usize = 100;
 
@@ -253,7 +254,7 @@ pub fn assign_x(graph: &mut Graph) {
         data_node.x_offset = Some(x_offset);
         data_node.y_offset = Some(y_offset);
         if data_node.uses_half_layer {
-            data_node.x_offset = Some(data_node.x_offset.unwrap() + 80.0);
+            data_node.x_offset = Some(data_node.x_offset.unwrap() + HALF_LAYER_OFFSET);
         }
     }
 }

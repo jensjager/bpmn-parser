@@ -193,8 +193,11 @@ fn add_bend_points(
     sorted_edges: HashMap<Option<usize>, HashMap<usize, Vec<RoutingEdge>>>,
 ) {
     for (_, layered_edges) in sorted_edges.iter() {
+        let mut layer_size: usize = 0;
+        layered_edges
+            .iter()
+            .for_each(|edges| layer_size += edges.1.len());
         for (i, routing_edges) in layered_edges.iter() {
-            let layer_size = routing_edges.len();
             for routing_edge in routing_edges.iter() {
                 let mut bend_points = vec![];
                 if routing_edge.is_reversed.is_some() {
@@ -275,16 +278,19 @@ fn get_right_port(node: &Node) -> (f64, f64) {
     )
 }
 
+const AVAILABLE_SPACE: f64 = layout::xy_ilp::LAYER_WIDTH - 20.0;
+
 fn get_mid_point(index: &usize, size: &usize, from_node: &Node, to_node: &Node) -> Vec<(f64, f64)> {
     let (from_x, from_y) = get_right_port(from_node);
-    let (_, to_y) = get_right_port(to_node);
-    if *size == 1 {
-        let mid_x = from_x + (layout::xy_ilp::LAYER_WIDTH / 2.0);
-        return vec![(mid_x, from_y), (mid_x, to_y)];
+    let (_, to_y) = get_left_port(to_node);
+    if from_y == to_y {
+        return vec![];
     }
-    let available_space = layout::xy_ilp::LAYER_WIDTH - 20.0;
-    let gap = available_space / (*size as f64 - 1.0);
-    let x_start = from_x + (layout::xy_ilp::LAYER_WIDTH - available_space) / 2.0;
+
+    let gap = AVAILABLE_SPACE / *size as f64;
+    let x_start = from_x
+        + from_node.x_offset.unwrap()
+        + (layout::xy_ilp::LAYER_WIDTH - AVAILABLE_SPACE) / 2.0;
     let mid_x = x_start + (*index as f64 * gap);
 
     vec![(mid_x, from_y), (mid_x, to_y)]
@@ -322,14 +328,15 @@ fn get_data_mid_point(
     to_node: &Node,
 ) -> Vec<(f64, f64)> {
     let (from_x, from_y) = get_data_right_port(from_node);
-    let (_, to_y) = get_right_port(to_node);
-    if *size == 1 {
-        let mid_x = from_x + (layout::xy_ilp::LAYER_WIDTH / 2.0);
-        return vec![(mid_x, from_y), (mid_x, to_y)];
+    let (_, to_y) = get_left_port(to_node);
+    if from_y == to_y {
+        return vec![];
     };
-    let available_space = layout::xy_ilp::LAYER_WIDTH - 20.0;
-    let gap = available_space / (*size as f64 - 1.0);
-    let x_start = from_x + (layout::xy_ilp::LAYER_WIDTH - available_space) / 2.0;
+
+    let gap = AVAILABLE_SPACE / (*size as f64 - 1.0);
+    let x_start = from_x
+        + from_node.x_offset.unwrap()
+        + (layout::xy_ilp::LAYER_WIDTH - AVAILABLE_SPACE) / 2.0;
     let mid_x = x_start + (*index as f64 * gap);
 
     vec![(mid_x, from_y), (mid_x, to_y)]
@@ -342,14 +349,15 @@ fn get_data_mid_point_reversed(
     to_node: &Node,
 ) -> Vec<(f64, f64)> {
     let (from_x, from_y) = get_right_port(to_node);
-    let (_, to_y) = get_data_right_port(from_node);
-    if *size == 1 {
-        let mid_x = from_x + (layout::xy_ilp::LAYER_WIDTH / 2.0);
-        return vec![(mid_x, from_y), (mid_x, to_y)];
-    }
-    let available_space = layout::xy_ilp::LAYER_WIDTH - 20.0;
-    let gap = available_space / (*size as f64 - 1.0);
-    let x_start = from_x + (layout::xy_ilp::LAYER_WIDTH - available_space) / 2.0;
+    let (_, to_y) = get_data_left_port(from_node);
+    if from_y == to_y {
+        return vec![];
+    };
+
+    let gap = AVAILABLE_SPACE / (*size as f64 - 1.0);
+    let x_start = from_x
+        + from_node.x_offset.unwrap()
+        + (layout::xy_ilp::LAYER_WIDTH - AVAILABLE_SPACE) / 2.0;
     let mid_x = x_start + (*index as f64 * gap);
 
     vec![(mid_x, from_y), (mid_x, to_y)]
