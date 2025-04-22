@@ -195,30 +195,74 @@ fn find_start_and_end_points(
         node.y.unwrap() + node.y_offset.unwrap(),
         get_node_size(&node.event.as_ref().unwrap()),
     );
+    // Start point is always from datanode
     let start_points = vec![
         // left
-        ((dn_x, dn_y + dn_height as f64 / 2.0)),
+        ((dn_x, dn_y + dn_height as f64 * 0.5)),
+        // left_up
+        ((dn_x, dn_y + dn_height as f64 * 0.25)),
+        // left_down
+        ((dn_x, dn_y + dn_height as f64 * 0.75)),
         // right
-        ((dn_x + dn_width as f64, dn_y as f64 + dn_height as f64 / 2.0)),
-        // top
-        ((dn_x + dn_width as f64 / 2.0, dn_y)),
-        // bottom
-        ((dn_x + dn_width as f64 / 2.0, dn_y + dn_height as f64)),
-    ];
-
-    let end_points = vec![
-        // left
-        ((node_x, node_y + node_height as f64 / 2.0)),
-        // right
+        ((dn_x + dn_width as f64, dn_y as f64 + dn_height as f64 * 0.5)),
+        // right_up
         ((
-            node_x + node_width as f64,
-            node_y as f64 + node_height as f64 / 2.0,
+            dn_x + dn_width as f64,
+            dn_y as f64 + dn_height as f64 * 0.25,
+        )),
+        // right_down
+        ((
+            dn_x + dn_width as f64,
+            dn_y as f64 + dn_height as f64 * 0.75,
         )),
         // top
-        ((node_x + node_width as f64 / 2.0, node_y)),
+        ((dn_x + dn_width as f64 * 0.5, dn_y)),
+        // top_left
+        ((dn_x + dn_width as f64 * 0.25, dn_y)),
+        // top_right
+        ((dn_x + dn_width as f64 * 0.75, dn_y)),
+        // bottom
+        ((dn_x + dn_width as f64 * 0.5, dn_y + dn_height as f64)),
+        // bottom_left
+        ((dn_x + dn_width as f64 * 0.25, dn_y + dn_height as f64)),
+        // bottom_right
+        ((dn_x + dn_width as f64 * 0.75, dn_y + dn_height as f64)),
+    ];
+    // End point is always node
+    let end_points = vec![
+        // left_up
+        ((node_x, node_y + node_height as f64 * 0.25)),
+        // left_down
+        ((node_x, node_y + node_height as f64 * 0.75)),
+        // right_up
+        ((
+            node_x + node_width as f64,
+            node_y as f64 + node_height as f64 * 0.25,
+        )),
+        // right_down
+        ((
+            node_x + node_width as f64,
+            node_y as f64 + node_height as f64 * 0.75,
+        )),
+        // top
+        ((node_x + node_width as f64 * 0.5, node_y)),
+        // top_left
+        ((node_x + node_width as f64 * 0.25, node_y)),
+        // top_right
+        ((node_x + node_width as f64 * 0.75, node_y)),
         // bottom
         ((
-            node_x + node_width as f64 / 2.0,
+            node_x + node_width as f64 * 0.5,
+            node_y + node_height as f64,
+        )),
+        // bottom_left
+        ((
+            node_x + node_width as f64 * 0.25,
+            node_y + node_height as f64,
+        )),
+        // bottom_right
+        ((
+            node_x + node_width as f64 * 0.75,
             node_y + node_height as f64,
         )),
     ];
