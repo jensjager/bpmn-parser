@@ -9,9 +9,10 @@ mod parser;
 mod to_xml;
 use clap::Parser;
 use layout::all_crossing_minimization::reduce_all_crossings;
-use layout::data_edge_routing::find_data_edges;
+use layout::data_edge_routing::find_straight_data_edges;
 use layout::dummy_node_generation::generate_dummy_nodes;
 use layout::edge_routing::edge_routing;
+use layout::reduce_half_layer_crossings::reduce_half_layer_crossings;
 use layout::replace_dummy_nodes::replace_dummy_nodes;
 use layout::solve_data_layer_assignment::solve_data_layer_assignment;
 use layout::solve_layer_assignment::solve_layer_assignment;
@@ -54,7 +55,8 @@ pub fn bpmd_to_bpmn(input: String) -> Result<String, Box<dyn std::error::Error>>
     generate_dummy_nodes(&mut graph);
     reduce_all_crossings(&mut graph);
     assign_xy_ilp(&mut graph);
-    find_data_edges(&mut graph);
+    reduce_half_layer_crossings(&mut graph);
+    find_straight_data_edges(&mut graph);
     edge_routing(&mut graph);
     replace_dummy_nodes(&mut graph);
 

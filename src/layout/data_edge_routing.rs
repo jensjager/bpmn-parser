@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 const NODE_MARGIN: usize = 5;
 
-pub fn find_data_edges(graph: &mut Graph) {
+pub fn find_straight_data_edges(graph: &mut Graph) {
     // HashMap to store coordinates of obstacles with node id and is_datanode as key
     // HashMap stores tuples of top left and bottom right coordinates of obstacles
     let mut matrix: HashMap<(usize, bool), (usize, usize, usize, usize)> = HashMap::new();

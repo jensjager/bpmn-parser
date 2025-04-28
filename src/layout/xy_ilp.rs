@@ -215,8 +215,8 @@ fn get_y_var(
 }
 
 const INITIAL_X_OFFSET: f64 = 50.0;
-const X_LAYER_WIDTH: f64 = 150.0;
-const HALF_LAYER_OFFSET: f64 = 75.0;
+const X_LAYER_WIDTH: f64 = 160.0;
+pub const HALF_LAYER_OFFSET: f64 = 80.0;
 const LARGEST_NODE_HEIGHT: usize = 80;
 const LARGEST_NODE_WIDTH: usize = 100;
 
